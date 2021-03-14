@@ -1,18 +1,16 @@
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Simple PWM controlling a DC motor example through serial terminal connected
-  via UART. Based on `simple_uart` and `simple_pwm` examples.
+  via UART.
 
 - Connect to uart0's rx and tx of the atmega2560 board. Interface with USB to TTL
   module and GTKTerm serial program. Configured for 16Mhz and 19.2 kbps.
 
-- PWM output to pin PB6 a.k.a. PWM12.
-
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-#define F_CPU 16000000 // CPU freq 16 MHz
-#include <avr/io.h> // io library
-#include <avr/interrupt.h> // interupt library
+#define F_CPU 16000000
+#include <avr/io.h>
+#include <avr/interrupt.h>
 #include <util/delay.h> 
 #include <stdlib.h>
 #include <string.h>
@@ -24,17 +22,14 @@
 /* ------------- */
 /*  PWM control  */
 /* ------------- */
+
     #define PWM_MAX 0x0271
     #define PWM_STEPS 0x007D
-    #define PWM_INC 0x0005
+    #define PWM_INC 0x0001
 
-    #define PWM_HIGH 12
-    #define PWM_LOW 6
-    #define PWM_STEPS_INT 6
-
-    // #define PWM_HIGH 20
-    // #define PWM_LOW 0
-    // #define PWM_STEPS_INT 6
+    #define PWM_HIGH 72
+    #define PWM_LOW 14
+    #define PWM_STEPS_INT 58
 
     unsigned char pwm_level;
     unsigned char slider_pos;
@@ -48,7 +43,7 @@
 /*  Registered commands and callbacks */
 /* ---------------------------------- */
 
-    #define CMD_LIST_LEN 6 // exact fixed number of commands at runtime
+    #define CMD_LIST_LEN 5 // exact fixed number of commands at runtime
 
     char str_help[] = 
         "\n\r# List of commands\n\r\n\r"
@@ -56,12 +51,11 @@
         "status : output current PWM level \n\r"
         "inc : increase PWM level by one unit \n\r"
         "dec : decrease PWM level by one unit \n\r"
-        "set : set PWM level with first argument \n\r"
         "mode : change mode to 'manual' \n\r"
         "\n\r";
 
     char *cmd_name[CMD_LIST_LEN] = {
-        "help", "status", "inc", "dec", "set", "mode"
+        "help", "status", "inc", "dec", "mode"
     };
 
     int cbk_help(unsigned char argc, char **argv)
@@ -72,14 +66,17 @@
 
     int cbk_print_pwm_level(unsigned char argc, char **argv)
     {
-        sprintf(str_buffer, "PWM Level: %d / %d\n\r", pwm_level, PWM_STEPS);
+        sprintf(
+            str_buffer,
+            "PWM Level: %d / %d  LOW / HIGH: %d / %d \n\r",
+            pwm_level, PWM_STEPS, PWM_LOW, PWM_HIGH
+        );
         uart_SendString(str_buffer);
         return 0;
     }
 
     int cbk_inc_pwm_level(unsigned char argc, char **argv)
     {
-        // if(pwm_level < PWM_STEPS)
         if(pwm_level < PWM_HIGH)
         {
             OCR1B += PWM_INC;
@@ -90,28 +87,10 @@
 
     int cbk_dec_pwm_level(unsigned char argc, char **argv)
     {
-        // if(pwm_level > 0)
         if(pwm_level > PWM_LOW)
         {
             OCR1B -= PWM_INC;
             pwm_level--;
-        }
-        return 0;
-    }
-
-    int cbk_set_pwm_level(unsigned char argc, char **argv)
-    {
-        if(argc < 2)
-        {
-            uart_SendString("Insufficient number of inputs\n\r");
-        }
-        else
-        {
-            int val = atoi(argv[1]);
-            val = val > PWM_STEPS ? PWM_STEPS : val;
-            val = val < 0 ? 0 : val;
-            pwm_level = val;
-            OCR1B = val * PWM_INC;
         }
         return 0;
     }
@@ -131,10 +110,9 @@
 
             uart_SendString(
                 "\n\r[MANUAL MODE]"
-                " use up and down keys to change level; enter to exit\n\r"
+                " use up and down keys to change angle; enter to exit\n\r"
             );
 
-            // for (i = 0; i < PWM_STEPS + 2; i++) uart_SendByte(' ');
             for (i = 0; i < PWM_STEPS_INT + 2; i++) uart_SendByte(' ');
             uart_SendByte(']');
             uart_SendString("\r[");
@@ -147,7 +125,7 @@
 
     int (*cmd_list[CMD_LIST_LEN])(unsigned char, char **) = {
         &cbk_help,
-        &cbk_print_pwm_level, &cbk_inc_pwm_level, &cbk_dec_pwm_level, &cbk_set_pwm_level,
+        &cbk_print_pwm_level, &cbk_inc_pwm_level, &cbk_dec_pwm_level,
         &cbk_mode
     };
 
@@ -177,7 +155,6 @@
                 {
                     cbk_inc_pwm_level(1, argv);
                     status.bracket = FALSE;
-                    // if(slider_pos < PWM_STEPS)
                     if(slider_pos < PWM_STEPS_INT)
                     {
                         uart_SendByte('=');
@@ -262,15 +239,23 @@
         set_1bit(TCCR1B, CS11, 0);
         set_1bit(TCCR1B, CS10, 0);
 
+        /* Configured for -90 to 90 deg with increments of 3 deg */
+
         /* set TOP */
         OCR1A = PWM_MAX;
 
-        /* init duty cycle(%) fraction of TOP */
-        // pwm_level = 0;
-        pwm_level = 0;
-        OCR1B = pwm_level * PWM_INC;
-
-        _delay_ms(500);
+        /* do a sweep to init and reset angle */
+        OCR1B = PWM_INC * PWM_LOW;
+        for(pwm_level=PWM_LOW; pwm_level <= PWM_HIGH; pwm_level++)
+        {
+            OCR1B += PWM_INC;
+            _delay_ms(25);
+        }
+        for(pwm_level=PWM_HIGH; pwm_level >= PWM_LOW; pwm_level--)
+        {
+            OCR1B -= PWM_INC;
+            _delay_ms(25);
+        }
 
         pwm_level = PWM_LOW;
         OCR1B = pwm_level * PWM_INC;
@@ -292,7 +277,6 @@
 
         err_no = 0;
         argv[0] = UART_RxBuffer;
-        uart_SendInt(ICR1);
     }
 
 
