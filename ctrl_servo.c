@@ -32,6 +32,7 @@
     #define PWM_STEPS_INT 58
 
     volatile uint16_t *pwm_select;
+    volatile char pwm_select_char;
     volatile unsigned char *pwm_level;
 
     unsigned char slider_pos;
@@ -71,8 +72,9 @@
     {
         sprintf(
             str_buffer,
-            "PWM Level: %d / %d  LOW / HIGH: %d / %d \n\r",
-            *pwm_level, PWM_STEPS, PWM_LOW, PWM_HIGH
+            "PWM Level: %d / %d  LOW / HIGH: %d / %d  "
+            "PWM Select: %c \n\r",
+            *pwm_level, PWM_STEPS, PWM_LOW, PWM_HIGH, pwm_select_char
         );
         uart_SendString(str_buffer);
         return 0;
@@ -136,18 +138,21 @@
         {
             pwm_select = &OCR1A;
             pwm_level = &pwm_A1_level;
+            pwm_select_char = 'A';
             uart_SendString("Channel A selected\n\r");
         }
         else if(strcmp(argv[1], "B") == 0)
         {
             pwm_select = &OCR1B;
             pwm_level = &pwm_B1_level;
+            pwm_select_char = 'B';
             uart_SendString("Channel B selected\n\r");
         }
         else if(strcmp(argv[1], "C") == 0)
         {
             pwm_select = &OCR1C;
             pwm_level = &pwm_C1_level;
+            pwm_select_char = 'C';
             uart_SendString("Channel C selected\n\r");
         }
         else uart_SendString("Unknown channel\n\r");
@@ -320,6 +325,7 @@
         /* pick PWM12 [PIN 6] */
         pwm_select = &OCR1B;
         pwm_level = &pwm_B1_level;
+        pwm_select_char = 'B';
     }
 
     void InitState()
