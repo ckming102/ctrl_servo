@@ -31,8 +31,9 @@
     #define PWM_LOW 14
     #define PWM_STEPS_INT 58
 
-    unsigned char pwm_level;
     volatile uint16_t *pwm_select;
+    volatile unsigned char *pwm_level;
+
     unsigned char slider_pos;
 
 /* -------------- */
@@ -44,7 +45,7 @@
 /*  Registered commands and callbacks */
 /* ---------------------------------- */
 
-    #define CMD_LIST_LEN 5 // exact fixed number of commands at runtime
+    #define CMD_LIST_LEN 6 // exact fixed number of commands at runtime
 
     char str_help[] = 
         "\n\r# List of commands\n\r\n\r"
@@ -53,10 +54,11 @@
         "inc : increase PWM level by one unit \n\r"
         "dec : decrease PWM level by one unit \n\r"
         "mode : change mode to 'manual' \n\r"
+        "select: change PWM channel to 'A,B,C' \n\r"
         "\n\r";
 
     char *cmd_name[CMD_LIST_LEN] = {
-        "help", "status", "inc", "dec", "mode"
+        "help", "status", "inc", "dec", "mode", "select"
     };
 
     int cbk_help(unsigned char argc, char **argv)
@@ -70,7 +72,7 @@
         sprintf(
             str_buffer,
             "PWM Level: %d / %d  LOW / HIGH: %d / %d \n\r",
-            pwm_level, PWM_STEPS, PWM_LOW, PWM_HIGH
+            *pwm_level, PWM_STEPS, PWM_LOW, PWM_HIGH
         );
         uart_SendString(str_buffer);
         return 0;
@@ -78,20 +80,20 @@
 
     int cbk_inc_pwm_level(unsigned char argc, char **argv)
     {
-        if(pwm_level < PWM_HIGH)
+        if(*pwm_level < PWM_HIGH)
         {
             *pwm_select += PWM_INC;
-            pwm_level++;
+            (*pwm_level)++;
         }
         return 0;
     }
 
     int cbk_dec_pwm_level(unsigned char argc, char **argv)
     {
-        if(pwm_level > PWM_LOW)
+        if(*pwm_level > PWM_LOW)
         {
             *pwm_select -= PWM_INC;
-            pwm_level--;
+            (*pwm_level)--;
         }
         return 0;
     }
@@ -117,17 +119,46 @@
             for (i = 0; i < PWM_STEPS_INT + 2; i++) uart_SendByte(' ');
             uart_SendByte(']');
             uart_SendString("\r[");
-            for (i = 0; i < pwm_level - PWM_LOW; i++) uart_SendByte('=');
-            slider_pos = pwm_level - PWM_LOW;
+            for (i = 0; i < *pwm_level - PWM_LOW; i++) uart_SendByte('=');
+            slider_pos = *pwm_level - PWM_LOW;
         }
-        else uart_SendString("unknown mode\n\r");
+        else uart_SendString("Unknown mode\n\r");
+        return 0;
+    }
+
+    int cbk_select(unsigned char argc, char **argv)
+    {
+        if(argc < 2)
+        {
+            uart_SendString("Insufficient number of inputs\n\r");
+        }
+        else if(strcmp(argv[1], "A") == 0)
+        {
+            pwm_select = &OCR1A;
+            pwm_level = &pwm_A1_level;
+            uart_SendString("Channel A selected\n\r");
+        }
+        else if(strcmp(argv[1], "B") == 0)
+        {
+            pwm_select = &OCR1B;
+            pwm_level = &pwm_B1_level;
+            uart_SendString("Channel B selected\n\r");
+        }
+        else if(strcmp(argv[1], "C") == 0)
+        {
+            pwm_select = &OCR1C;
+            pwm_level = &pwm_C1_level;
+            uart_SendString("Channel C selected\n\r");
+        }
+        else uart_SendString("Unknown channel\n\r");
+
         return 0;
     }
 
     int (*cmd_list[CMD_LIST_LEN])(unsigned char, char **) = {
         &cbk_help,
         &cbk_print_pwm_level, &cbk_inc_pwm_level, &cbk_dec_pwm_level,
-        &cbk_mode
+        &cbk_mode, &cbk_select
     };
 
 /* --------------------------- */
@@ -258,14 +289,16 @@
         OCR1C = PWM_INC * PWM_LOW;
         OCR1B = PWM_INC * PWM_LOW;
         OCR1A = PWM_INC * PWM_LOW;
-        for(pwm_level=PWM_LOW; pwm_level <= PWM_HIGH; pwm_level++)
+
+        int level;
+        for(level=PWM_LOW; level <= PWM_HIGH; level++)
         {
             OCR1C += PWM_INC;
             OCR1B += PWM_INC;
             OCR1A += PWM_INC;
             _delay_ms(25);
         }
-        for(pwm_level=PWM_HIGH; pwm_level >= PWM_LOW; pwm_level--)
+        for(level=PWM_HIGH; level >= PWM_LOW; level--)
         {
             OCR1C -= PWM_INC;
             OCR1B -= PWM_INC;
@@ -273,16 +306,20 @@
             _delay_ms(25);
         }
 
-        pwm_level = PWM_LOW;
-        OCR1C = pwm_level * PWM_INC;
-        OCR1B = pwm_level * PWM_INC;
-        OCR1A = pwm_level * PWM_INC;
+        pwm_C1_level = PWM_LOW;
+        pwm_B1_level = PWM_LOW;
+        pwm_A1_level = PWM_LOW;
+
+        OCR1C = pwm_C1_level * PWM_INC;
+        OCR1B = pwm_B1_level * PWM_INC;
+        OCR1A = pwm_A1_level * PWM_INC;
 
        /* start from zero */
         TCNT1 = 0x0000;
 
         /* pick PWM12 [PIN 6] */
         pwm_select = &OCR1B;
+        pwm_level = &pwm_B1_level;
     }
 
     void InitState()
