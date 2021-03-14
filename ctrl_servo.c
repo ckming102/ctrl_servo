@@ -32,6 +32,7 @@
     #define PWM_STEPS_INT 58
 
     unsigned char pwm_level;
+    volatile uint16_t *pwm_select;
     unsigned char slider_pos;
 
 /* -------------- */
@@ -79,7 +80,7 @@
     {
         if(pwm_level < PWM_HIGH)
         {
-            OCR1B += PWM_INC;
+            *pwm_select += PWM_INC;
             pwm_level++;
         }
         return 0;
@@ -89,7 +90,7 @@
     {
         if(pwm_level > PWM_LOW)
         {
-            OCR1B -= PWM_INC;
+            *pwm_select -= PWM_INC;
             pwm_level--;
         }
         return 0;
@@ -211,11 +212,14 @@
 
     void InitPWM()
     {
-        /*  set PORTB to output */
-        /* # 16 bit timer-counter TCNT0 with output to OC1B = pin PB6 [PWM 12]*/
-        sethigh_1bit(DDRB, PB5);
-        sethigh_1bit(DDRB, PB6);
+
+        /*   16 bit timer-counter TCNT0 with output to */
+        /*   OC1C = pin PB7 [PWM 13]                   */
+        /*   OC1B = pin PB6 [PWM 12]                   */
+        /*   OC1A = pin PB5 [PWM 11]                   */
         sethigh_1bit(DDRB, PB7);
+        sethigh_1bit(DDRB, PB6);
+        sethigh_1bit(DDRB, PB5);
 
         /* PWM modes in pg. 145 of ATmega2560 data-sheet */
         set_1bit(TCCR1B, WGM13, 1);
@@ -224,8 +228,14 @@
         set_1bit(TCCR1A, WGM10, 0);
 
         /* inverted [11] /uninverted mode [10] */
+        set_1bit(TCCR1A, COM1A1, 1);
+        set_1bit(TCCR1A, COM1A0, 0);
+
         set_1bit(TCCR1A, COM1B1, 1);
         set_1bit(TCCR1A, COM1B0, 0);
+
+        set_1bit(TCCR1A, COM1C1, 1);
+        set_1bit(TCCR1A, COM1C0, 0);
 
         /* choose clock source and prescalar */
         /* prescalar     | CS12:0    */
@@ -245,23 +255,34 @@
         ICR1 = PWM_MAX;
 
         /* do a sweep to init and reset angle */
+        OCR1C = PWM_INC * PWM_LOW;
         OCR1B = PWM_INC * PWM_LOW;
+        OCR1A = PWM_INC * PWM_LOW;
         for(pwm_level=PWM_LOW; pwm_level <= PWM_HIGH; pwm_level++)
         {
+            OCR1C += PWM_INC;
             OCR1B += PWM_INC;
+            OCR1A += PWM_INC;
             _delay_ms(25);
         }
         for(pwm_level=PWM_HIGH; pwm_level >= PWM_LOW; pwm_level--)
         {
+            OCR1C -= PWM_INC;
             OCR1B -= PWM_INC;
+            OCR1A -= PWM_INC;
             _delay_ms(25);
         }
 
         pwm_level = PWM_LOW;
+        OCR1C = pwm_level * PWM_INC;
         OCR1B = pwm_level * PWM_INC;
+        OCR1A = pwm_level * PWM_INC;
 
        /* start from zero */
         TCNT1 = 0x0000;
+
+        /* pick PWM12 [PIN 6] */
+        pwm_select = &OCR1B;
     }
 
     void InitState()
