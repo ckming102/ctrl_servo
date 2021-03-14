@@ -221,7 +221,7 @@
         set_1bit(TCCR1B, WGM13, 1);
         set_1bit(TCCR1B, WGM12, 0);
         set_1bit(TCCR1A, WGM11, 0);
-        set_1bit(TCCR1A, WGM10, 1);
+        set_1bit(TCCR1A, WGM10, 0);
 
         /* inverted [11] /uninverted mode [10] */
         set_1bit(TCCR1A, COM1B1, 1);
@@ -242,7 +242,7 @@
         /* Configured for -90 to 90 deg with increments of 3 deg */
 
         /* set TOP */
-        OCR1A = PWM_MAX;
+        ICR1 = PWM_MAX;
 
         /* do a sweep to init and reset angle */
         OCR1B = PWM_INC * PWM_LOW;
