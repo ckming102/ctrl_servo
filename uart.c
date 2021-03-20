@@ -12,9 +12,9 @@
 
     /* RX buffer and pointer for uart */
     char UART_RxBuffer[UART_RX_BUFFER_SIZE];
-    unsigned char UART_RxPtr;
+    uint8_t UART_RxPtr;
 
-    unsigned char UART_ID;
+    uint8_t UART_ID;
 
     /* data register */
     volatile uint8_t  *UDRn;
@@ -30,8 +30,8 @@
 
     /* TX buffer and head/tail pointers (idx counters) */
     static char UART_TxBuffer[UART_TX_BUFFER_SIZE];
-    static volatile unsigned char UART_TxHead;
-    static volatile unsigned char UART_TxTail;
+    static volatile uint8_t UART_TxHead;
+    static volatile uint8_t UART_TxTail;
 
     /* ===================== */
     /* Pointers to Registers */
@@ -45,7 +45,7 @@
 /* ---------------------- */
 /*  Function definitions  */
 /* ---------------------- */
-    void uart_Select(unsigned char uart_id)
+    void uart_Select(uint8_t uart_id)
     {
 
         switch(uart_id)
@@ -99,7 +99,7 @@
     }
 
 
-    void uart_Init(unsigned char uart_id)
+    void uart_Init(uint8_t uart_id)
     {
         uart_Select(uart_id);
 
@@ -111,8 +111,8 @@
         // 19.2 kbps trasfer speed running at 3.6864 MHz.
         // #define BAUD 11
 
-        *UBRRnH = (unsigned char)(BAUD>>8);
-        *UBRRnL = (unsigned char)BAUD;
+        *UBRRnH = (uint8_t)(BAUD>>8);
+        *UBRRnL = (uint8_t)BAUD;
 
         /* Enable receiver and transmitter, rx int */
         *UCSRnB = (1<<RXENn)|(1<<TXENn)|(1<<RXCIEn)|(1<<TXCIEn);
@@ -130,7 +130,7 @@
 
     void uart_SendByte(char data)
     {
-        unsigned char tmphead;
+        uint8_t tmphead;
 
         /* Calculate buffer index */
         tmphead = ( UART_TxHead + 1 ) & UART_TX_BUFFER_MASK;
@@ -148,7 +148,7 @@
 
     void uart_SendString(char Str[])
     {
-        unsigned char n = 0;
+        uint8_t n = 0;
         while(Str[n])
            uart_SendByte(Str[n++]);
     }
@@ -214,7 +214,7 @@
 
     void _TransmitByte()
     {
-        unsigned char UART_TxTail_tmp;
+        uint8_t UART_TxTail_tmp;
         UART_TxTail_tmp = UART_TxTail;
 
         /* Check if all data is transmitted */

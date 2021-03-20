@@ -9,17 +9,17 @@
 /* --------------------------------- */
 
     char *argv[ARGV_SIZE];
-    unsigned char argc;
+    uint8_t argc;
 
 /* ----------------------------------- */
 /*  Helper functions for parsing etc.  */
 /* ----------------------------------- */
 
     /* tokenize str_buffer for argument passing, str_buffer is modified */
-    unsigned char tokenize(char **tokens, char *str_buffer, const char* delim)
+    uint8_t tokenize(char **tokens, char *str_buffer, const char* delim)
     {
         /* the number of string tokens found */
-        unsigned char n_tokens;
+        uint8_t n_tokens;
 
         /* first call */
         char * token = strtok(str_buffer, delim);

@@ -45,9 +45,9 @@
 
     volatile uint16_t *pwm_select;
     volatile char pwm_select_char;
-    volatile unsigned char *pwm_level;
+    volatile uint8_t *pwm_level;
 
-    unsigned char slider_pos;
+    uint8_t slider_pos;
 
 /* -------------- */
 /*  Terminal I/O  */
@@ -74,13 +74,13 @@
         "help", "status", "inc", "dec", "mode", "select"
     };
 
-    int cbk_help(unsigned char argc, char **argv)
+    int cbk_help(uint8_t argc, char **argv)
     {
         uart_SendString(str_help);
         return 0;
     }
 
-    int cbk_print_pwm_level(unsigned char argc, char **argv)
+    int cbk_print_pwm_level(uint8_t argc, char **argv)
     {
         sprintf(
             str_buffer,
@@ -92,7 +92,7 @@
         return 0;
     }
 
-    int cbk_inc_pwm_level(unsigned char argc, char **argv)
+    int cbk_inc_pwm_level(uint8_t argc, char **argv)
     {
         if(*pwm_level < PWM_HIGH)
         {
@@ -102,7 +102,7 @@
         return 0;
     }
 
-    int cbk_dec_pwm_level(unsigned char argc, char **argv)
+    int cbk_dec_pwm_level(uint8_t argc, char **argv)
     {
         if(*pwm_level > PWM_LOW)
         {
@@ -112,7 +112,7 @@
         return 0;
     }
 
-    int cbk_mode(unsigned char argc, char **argv)
+    int cbk_mode(uint8_t argc, char **argv)
     {
         if(argc < 2)
         {
@@ -120,7 +120,7 @@
         }
         else if(strcmp(argv[1], "manual") == 0)
         {
-            unsigned char i;
+            uint8_t i;
 
             /* change context */
             context = context_manual;
@@ -140,7 +140,7 @@
         return 0;
     }
 
-    int cbk_select(unsigned char argc, char **argv)
+    int cbk_select(uint8_t argc, char **argv)
     {
         if(argc < 2)
         {
@@ -172,7 +172,7 @@
         return 0;
     }
 
-    int (*cmd_list[CMD_LIST_LEN])(unsigned char, char **) = {
+    int (*cmd_list[CMD_LIST_LEN])(uint8_t, char **) = {
         &cbk_help,
         &cbk_print_pwm_level, &cbk_inc_pwm_level, &cbk_dec_pwm_level,
         &cbk_mode, &cbk_select

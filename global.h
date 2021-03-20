@@ -26,17 +26,17 @@
     /* Global flags */
     struct GLOBAL_FLAGS {
       /* True when uart has received a string (ended with '/r') */
-      unsigned char cmd_check:1;
+      uint8_t cmd_check:1;
       /* True when valid command is executing */
-      unsigned char cmd_executed:1;
+      uint8_t cmd_executed:1;
       /* True when RX interrupt received */
-      unsigned char rx_int:1;
+      uint8_t rx_int:1;
       /* True when escape character received */
-      unsigned char esc_char:1;
+      uint8_t esc_char:1;
       /* True when [ received */
-      unsigned char bracket:1;
+      uint8_t bracket:1;
       /* Dummy bits to fill up a byte */
-      unsigned char dummy:3;
+      uint8_t dummy:3;
     }; 
 
     volatile struct GLOBAL_FLAGS status;
@@ -48,7 +48,7 @@
       context_cli, context_manual
     };
 
-    volatile unsigned char context;
+    volatile uint8_t context;
 
     /* error number */
     int err_no;
@@ -57,13 +57,13 @@
 /*  State variables for PWM control  */
 /* --------------------------------- */
 
-    unsigned char pwm_C1_level;
-    unsigned char pwm_B1_level;
-    unsigned char pwm_A1_level;
+    uint8_t pwm_C1_level;
+    uint8_t pwm_B1_level;
+    uint8_t pwm_A1_level;
 
-    unsigned char pwm_C1_slider_pos;
-    unsigned char pwm_B1_slider_pos;
-    unsigned char pwm_A1_slider_pos;
+    uint8_t pwm_C1_slider_pos;
+    uint8_t pwm_B1_slider_pos;
+    uint8_t pwm_A1_slider_pos;
 
 
 

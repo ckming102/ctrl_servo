@@ -16,7 +16,7 @@
 
     /*  String buffer from uart. Parsing is done in main()  */
     extern char UART_RxBuffer[UART_RX_BUFFER_SIZE];
-    extern unsigned char UART_RxPtr;
+    extern uint8_t UART_RxPtr;
 
     /* check power of 2 size */
     #if ( UART_RX_BUFFER_SIZE & UART_RX_BUFFER_MASK )
@@ -41,7 +41,7 @@
     #define UART_UCSRnC UCSRnC
 
     /* selected UART data register: set by uart init */
-    extern unsigned char UART_ID;
+    extern uint8_t UART_ID;
 
     /* fixed bit positions */
 
@@ -82,7 +82,7 @@
 /* ----------------- */
 /*  uart interfaces  */
 /* ----------------- */
-    void uart_Init(unsigned char);
+    void uart_Init(uint8_t);
     void uart_SendByte(char data);
     void uart_SendString(char text[]);
     void uart_SendInt(int data);
