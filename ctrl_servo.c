@@ -258,10 +258,29 @@
         sethigh_1bit(DDRB, DDB7);
     }
 
+    void _SweepPWM()
+    {
+        int level;
+
+        *pwm_select = PWM_INC * PWM_LOW;
+        for(level=PWM_LOW; level <= PWM_HIGH; level++)
+        {
+            *pwm_select += PWM_INC;
+            _delay_ms(25);
+        }
+        for(level=PWM_HIGH; level >= PWM_LOW; level--)
+        {
+            *pwm_select -= PWM_INC;
+            _delay_ms(25);
+        }
+        *pwm_level = PWM_LOW;
+        *pwm_select = *pwm_level * PWM_INC;
+    }
+
     void InitPWM()
     {
 
-        /*   16 bit timer-counter TCNT0 with output to */
+        /*   16 bit timer-counter TCNT1 with output to */
         /*   OC1C = pin PB7 [PWM 13]                   */
         /*   OC1B = pin PB6 [PWM 12]                   */
         /*   OC1A = pin PB5 [PWM 11]                   */
@@ -303,50 +322,17 @@
         ICR1 = PWM_MAX;
 
         /* do a sweep to init and reset angle */
-        int level;
+        pwm_select = &OCR1A;
+        pwm_level = &pwm_A1_level;
+        _SweepPWM();
 
-        OCR1A = PWM_INC * PWM_LOW;
-        for(level=PWM_LOW; level <= PWM_HIGH; level++)
-        {
-            OCR1A += PWM_INC;
-            _delay_ms(25);
-        }
-        for(level=PWM_HIGH; level >= PWM_LOW; level--)
-        {
-            OCR1A -= PWM_INC;
-            _delay_ms(25);
-        }
-        pwm_A1_level = PWM_LOW;
-        OCR1A = pwm_A1_level * PWM_INC;
+        pwm_select = &OCR1B;
+        pwm_level = &pwm_B1_level;
+        _SweepPWM();
 
-        OCR1B = PWM_INC * PWM_LOW;
-        for(level=PWM_LOW; level <= PWM_HIGH; level++)
-        {
-            OCR1B += PWM_INC;
-            _delay_ms(25);
-        }
-        for(level=PWM_HIGH; level >= PWM_LOW; level--)
-        {
-            OCR1B -= PWM_INC;
-            _delay_ms(25);
-        }
-        pwm_B1_level = PWM_LOW;
-        OCR1B = pwm_B1_level * PWM_INC;
-
-        OCR1C = PWM_INC * PWM_LOW;
-        for(level=PWM_LOW; level <= PWM_HIGH; level++)
-        {
-            OCR1C += PWM_INC;
-            _delay_ms(25);
-        }
-        for(level=PWM_HIGH; level >= PWM_LOW; level--)
-        {
-            OCR1C -= PWM_INC;
-            _delay_ms(25);
-        }
-
-        pwm_C1_level = PWM_LOW;
-        OCR1C = pwm_C1_level * PWM_INC;
+        pwm_select = &OCR1C;
+        pwm_level = &pwm_C1_level;
+        _SweepPWM();
 
        /* start from zero */
         TCNT1 = 0x0000;
