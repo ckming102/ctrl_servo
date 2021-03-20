@@ -85,7 +85,7 @@
     void cli_Keypress()
     {
         /* copy-in byte */
-        char data = UDR0;
+        char data = *UART_UDRn;
 
         /* if command checking flag is off */
         if(status.cmd_check == FALSE)

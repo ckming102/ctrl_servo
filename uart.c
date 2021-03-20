@@ -6,6 +6,23 @@
 #include "global.h"
 #include "uart.h"
 
+/* ------------------ */
+/*  Extern variables  */
+/* ------------------ */
+
+    /* RX buffer and pointer for uart */
+    char UART_RxBuffer[UART_RX_BUFFER_SIZE];
+    unsigned char UART_RxPtr;
+
+    unsigned char UART_ID;
+
+    /* data register */
+    volatile uint8_t  *UDRn;
+
+    /* control and status registers */
+    volatile uint8_t *UCSRnA;
+    volatile uint8_t *UCSRnB;
+    volatile uint8_t *UCSRnC;
 
 /* ------------------ */
 /*  Static variables  */
@@ -16,20 +33,76 @@
     static volatile unsigned char UART_TxHead;
     static volatile unsigned char UART_TxTail;
 
-/* ------------------ */
-/*  Extern variables  */
-/* ------------------ */
+    /* ===================== */
+    /* Pointers to Registers */
+    /* ===================== */
 
-    /* RX buffer and pointer for uart */
-    char UART_RxBuffer[UART_RX_BUFFER_SIZE];
-    unsigned char UART_RxPtr;
+        /* baud rate registers */
+        static volatile uint16_t *UBRRn;
+        static volatile uint8_t  *UBRRnL;
+        static volatile uint8_t  *UBRRnH;
 
 /* ---------------------- */
 /*  Function definitions  */
 /* ---------------------- */
-
-    void uart_Init(void)
+    void uart_Select(unsigned char uart_id)
     {
+
+        switch(uart_id)
+        {
+            case 1:
+                UBRRn  = &UBRR1;
+                UBRRnL = &UBRR1L;
+                UBRRnH = &UBRR1H;
+                UDRn   = &UDR1;
+                UCSRnA = &UCSR1A;
+                UCSRnB = &UCSR1B;
+                UCSRnC = &UCSR1C;
+                UART_ID = 1;
+            break;
+
+            case 2:
+                UBRRn  = &UBRR2;
+                UBRRnL = &UBRR2L;
+                UBRRnH = &UBRR2H;
+                UDRn   = &UDR2;
+                UCSRnA = &UCSR2A;
+                UCSRnB = &UCSR2B;
+                UCSRnC = &UCSR2C;
+                UART_ID = 2;
+            break;
+
+            case 3:
+                UBRRn  = &UBRR3;
+                UBRRnL = &UBRR3L;
+                UBRRnH = &UBRR3H;
+                UDRn   = &UDR3;
+                UCSRnA = &UCSR3A;
+                UCSRnB = &UCSR3B;
+                UCSRnC = &UCSR3C;
+                UART_ID = 3;
+            break;
+
+            /* default is zero */
+            default:
+                UBRRn  = &UBRR0;
+                UBRRnL = &UBRR0L;
+                UBRRnH = &UBRR0H;
+                UDRn   = &UDR0;
+                UCSRnA = &UCSR0A;
+                UCSRnB = &UCSR0B;
+                UCSRnC = &UCSR0C;
+                UART_ID = 0;
+            break;
+        }
+
+    }
+
+
+    void uart_Init(unsigned char uart_id)
+    {
+        uart_Select(uart_id);
+
         /* -- Set baud rates, refer to datasheet -- */
         // 19.2 kbps trasfer speed running at 16 MHz.
         #define BAUD 51
@@ -38,14 +111,14 @@
         // 19.2 kbps trasfer speed running at 3.6864 MHz.
         // #define BAUD 11
 
-        UBRR0H = (unsigned char)(BAUD>>8);
-        UBRR0L = (unsigned char)BAUD;
+        *UBRRnH = (unsigned char)(BAUD>>8);
+        *UBRRnL = (unsigned char)BAUD;
 
         /* Enable receiver and transmitter, rx int */
-        UCSR0B = (1<<RXEN0)|(1<<TXEN0)|(1<<RXCIE0)|(1<<TXCIE0);
+        *UCSRnB = (1<<RXENn)|(1<<TXENn)|(1<<RXCIEn)|(1<<TXCIEn);
      
         /* Set frame format: 8data, 1stop bit */
-        UCSR0C = (3<<UCSZ00);
+        *UCSRnC = (3<<UCSZn0);
 
         /* Flush Buffers */
         UART_RxPtr = 0;
@@ -113,17 +186,33 @@
 /*  RX interrupt handler  */
 /* ---------------------  */
 
+    /* alter as needed */
+
     ISR(USART0_RX_vect)
     {
-        status.rx_int = TRUE;
+        if(UART_ID == 0) status.rx_int = TRUE;
+    }
+
+    ISR(USART1_RX_vect)
+    {
+        if(UART_ID == 1) status.rx_int = TRUE;
+    }
+
+    ISR(USART2_RX_vect)
+    {
+        if(UART_ID == 2) status.rx_int = TRUE;
+    }
+
+    ISR(USART3_RX_vect)
+    {
+        if(UART_ID == 3) status.rx_int = TRUE;
     }
 
 /* ---------------------- */
 /*  TX interrupt handler  */
 /* ---------------------- */
 
-    /*  Activated by SendByte() and is turned off when TX buffer is empty */
-    ISR(USART0_UDRE_vect)
+    void _TransmitByte()
     {
         unsigned char UART_TxTail_tmp;
         UART_TxTail_tmp = UART_TxTail;
@@ -136,15 +225,42 @@
             /* Store new index */
             UART_TxTail =  UART_TxTail_tmp;
             /* Start transmition */
-            UDR0= UART_TxBuffer[ UART_TxTail_tmp];
+            *UDRn = UART_TxBuffer[ UART_TxTail_tmp];
         }
         else
             /* Disable UDRE interrupt */
             CLR_UDRIE;
     }
 
+    /*  Activated by SendByte() and is turned off when TX buffer is empty */
+
+    /* alter as needed */
+
+    ISR(USART0_UDRE_vect)
+    {
+        if(UART_ID == 0) _TransmitByte();
+    }
+
+    ISR(USART1_UDRE_vect)
+    {
+        if(UART_ID == 1) _TransmitByte();
+    }
+
+    ISR(USART2_UDRE_vect)
+    {
+        if(UART_ID == 2) _TransmitByte();
+    }
+
+    ISR(USART3_UDRE_vect)
+    {
+        if(UART_ID == 3) _TransmitByte();
+    }
+
     /*  Activated when TX is complete */
     EMPTY_INTERRUPT(USART0_TX_vect);
+    EMPTY_INTERRUPT(USART1_TX_vect);
+    EMPTY_INTERRUPT(USART2_TX_vect);
+    EMPTY_INTERRUPT(USART3_TX_vect);
 
 /* --------------------- */
 /*  Catch bad interrupt  */

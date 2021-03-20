@@ -3,9 +3,21 @@
 # Simple PWM controlling a DC motor example through serial terminal connected
   via UART.
 
-- Connect to uart0's rx and tx of the atmega2560 board. Interface with USB to TTL
+- Connect to uart1's rx and tx of the atmega2560 board. Interface with USB to TTL
   module and GTKTerm serial program. Configured for 16Mhz and 19.2 kbps.
 
+# TODO:
+- Decrease pre-scalar to get finest decent angular resolution for the MG996R,
+  1.8 deg I believe. 0.9 deg it as the dead-band.
+
+- Encapsulate each timer into its own PWM control class; distinguish the 8-bit and
+  16 bit. Use offsets for the pointer locations! OCR[0-3][A-C]-> OCRnX etc.
+
+- Encapsulate slider / progress bar. Use function pointer for the uart_SendString
+
+- Generalize manual mode to switch interactively between channels
+
+- Decide on scheduling protocol and basic path planning
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 #define F_CPU 16000000
@@ -172,7 +184,7 @@
     void manual_Keypress()
     {
         /* copy-in byte */
-        char data = UDR0;
+        char data = *UART_UDRn;
 
         switch(data)
         {
@@ -239,7 +251,7 @@
     void InitUART()
     {
         /* uart */
-        uart_Init();
+        uart_Init(1);
         sei();
 
         /* blinker */
@@ -291,33 +303,50 @@
         ICR1 = PWM_MAX;
 
         /* do a sweep to init and reset angle */
-        OCR1C = PWM_INC * PWM_LOW;
-        OCR1B = PWM_INC * PWM_LOW;
-        OCR1A = PWM_INC * PWM_LOW;
-
         int level;
+
+        OCR1A = PWM_INC * PWM_LOW;
         for(level=PWM_LOW; level <= PWM_HIGH; level++)
         {
-            OCR1C += PWM_INC;
-            OCR1B += PWM_INC;
             OCR1A += PWM_INC;
             _delay_ms(25);
         }
         for(level=PWM_HIGH; level >= PWM_LOW; level--)
         {
-            OCR1C -= PWM_INC;
-            OCR1B -= PWM_INC;
             OCR1A -= PWM_INC;
+            _delay_ms(25);
+        }
+        pwm_A1_level = PWM_LOW;
+        OCR1A = pwm_A1_level * PWM_INC;
+
+        OCR1B = PWM_INC * PWM_LOW;
+        for(level=PWM_LOW; level <= PWM_HIGH; level++)
+        {
+            OCR1B += PWM_INC;
+            _delay_ms(25);
+        }
+        for(level=PWM_HIGH; level >= PWM_LOW; level--)
+        {
+            OCR1B -= PWM_INC;
+            _delay_ms(25);
+        }
+        pwm_B1_level = PWM_LOW;
+        OCR1B = pwm_B1_level * PWM_INC;
+
+        OCR1C = PWM_INC * PWM_LOW;
+        for(level=PWM_LOW; level <= PWM_HIGH; level++)
+        {
+            OCR1C += PWM_INC;
+            _delay_ms(25);
+        }
+        for(level=PWM_HIGH; level >= PWM_LOW; level--)
+        {
+            OCR1C -= PWM_INC;
             _delay_ms(25);
         }
 
         pwm_C1_level = PWM_LOW;
-        pwm_B1_level = PWM_LOW;
-        pwm_A1_level = PWM_LOW;
-
         OCR1C = pwm_C1_level * PWM_INC;
-        OCR1B = pwm_B1_level * PWM_INC;
-        OCR1A = pwm_A1_level * PWM_INC;
 
        /* start from zero */
         TCNT1 = 0x0000;
