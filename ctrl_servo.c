@@ -171,16 +171,16 @@ int cbk_select(uint8_t argc, char **argv)
 
 int cbk_pwm_frequency(uint8_t argc, char **argv)
 {
-    PWM_FrequencyHz(&pwm, str_tmp);
-    sprintf(str_buffer,"PWM Frequency: %s",str_tmp);
+    PWM_FrequencyHz(&pwm, str_temp);
+    sprintf(str_buffer,"PWM Frequency: %s",str_temp);
     uart_SendString(str_buffer);
     return 0;
 }
 
 int cbk_duty_cycle(uint8_t argc, char **argv)
 {
-    PWM_DutyCycle(&pwm, pwm_chn, str_tmp);
-    sprintf(str_buffer,"Duty Cycle: %s",str_tmp);
+    PWM_DutyCycle(&pwm, pwm_chn, str_temp);
+    sprintf(str_buffer,"Duty Cycle: %s",str_temp);
     uart_SendString(str_buffer);
     return 0;
 }
