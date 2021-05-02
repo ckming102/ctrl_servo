@@ -59,11 +59,14 @@ uint8_t slider_pos;
 /* -------------- */
 char str_buffer[80];
 
+// for short temp strings
+char str_temp[20];
+
 /* ---------------------------------- */
 /*  Registered commands and callbacks */
 /* ---------------------------------- */
 
-#define CMD_LIST_LEN 6 // exact fixed number of commands at runtime
+#define CMD_LIST_LEN 7 // exact fixed number of commands at runtime
 
 char str_help[] = 
     "\n\r# List of commands\n\r\n\r"
@@ -73,10 +76,11 @@ char str_help[] =
     "dec : decrease PWM level by one unit \n\r"
     "mode : change mode to 'manual' \n\r"
     "select: change PWM channel to 'A,B,C' \n\r"
+    "frequency : Displays the pwm frequency in Hz\n\r"
     "\n\r";
 
 char *cmd_name[CMD_LIST_LEN] = {
-    "help", "status", "inc", "dec", "mode", "select"
+    "help", "status", "inc", "dec", "mode", "select", "frequency"
 };
 
 int cbk_help(uint8_t argc, char **argv)
@@ -164,10 +168,18 @@ int cbk_select(uint8_t argc, char **argv)
     return 0;
 }
 
+int cbk_pwm_frequency(uint8_t argc, char **argv)
+{
+    PWM_FrequencyHz(&pwm, str_tmp);
+    sprintf(str_buffer,"PWM Frequency: %s",str_tmp);
+    uart_SendString(str_buffer);
+    return 0;
+}
+
 int (*cmd_list[CMD_LIST_LEN])(uint8_t, char **) = {
     &cbk_help,
     &cbk_print_pwm_level, &cbk_inc_pwm_level, &cbk_dec_pwm_level,
-    &cbk_mode, &cbk_select
+    &cbk_mode, &cbk_select, &cbk_pwm_frequency
 };
 
 /* --------------------------- */
