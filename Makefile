@@ -3,7 +3,7 @@ CFLAGS=-g -Wall -mcall-prologues -mmcu=$(MCU) -Os
 LDFLAGS=-Wl,-gc-sections -Wl,-relax
 CC=avr-gcc
 TARGET=ctrl_servo
-OBJECT_FILES=uart.o cmd.o ctrl_servo.o
+OBJECT_FILES=uart.o cmd.o timer.o pwm.o ctrl_servo.o
 
 all: $(TARGET).hex
 

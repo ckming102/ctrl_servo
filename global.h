@@ -20,6 +20,10 @@
         VAL ? sethigh_1bit(REG, BIT_POS) : setlow_1bit(REG, BIT_POS) \
     )
 
+  #define set_1bit_hex(REG, BIT_POS, HEX) (\
+      set_1bit(REG, BIT_POS, HEX & (1 << BIT_POS)) \
+  )
+
 /* ---------------------------------- */
 /*  GLOBAL flags and state variables  */
 /* ---------------------------------- */
@@ -52,19 +56,6 @@
 
     /* error number */
     int err_no;
-
-/* --------------------------------- */
-/*  State variables for PWM control  */
-/* --------------------------------- */
-
-    uint8_t pwm_C1_level;
-    uint8_t pwm_B1_level;
-    uint8_t pwm_A1_level;
-
-    uint8_t pwm_C1_slider_pos;
-    uint8_t pwm_B1_slider_pos;
-    uint8_t pwm_A1_slider_pos;
-
 
 
 #endif

@@ -30,22 +30,28 @@
 #include "global.h"
 #include "uart.h"
 #include "cmd.h"
+#include "timer.h"
+#include "pwm.h"
 
 /* ------------- */
 /*  PWM control  */
 /* ------------- */
 
-    #define PWM_MAX 0x0271
     #define PWM_STEPS 0x007D
+    #define PWM_MAX 0x0271
     #define PWM_INC 0x0001
 
     #define PWM_HIGH 72
     #define PWM_LOW 14
+    #define PWM_IDLE 50
     #define PWM_STEPS_INT 58
+
+    TIMER timer;
+    PWM pwm;
 
     volatile uint16_t *pwm_select;
     volatile char pwm_select_char;
-    volatile uint8_t *pwm_level;
+    volatile uint16_t *pwm_level;
 
     uint8_t slider_pos;
 
@@ -148,22 +154,22 @@
         }
         else if(strcmp(argv[1], "A") == 0)
         {
-            pwm_select = &OCR1A;
-            pwm_level = &pwm_A1_level;
+            pwm_select = pwm.OCRnx[chn_A];
+            pwm_level = &(pwm.pwm_level[chn_A]);
             pwm_select_char = 'A';
             uart_SendString("Channel A selected\n\r");
         }
         else if(strcmp(argv[1], "B") == 0)
         {
-            pwm_select = &OCR1B;
-            pwm_level = &pwm_B1_level;
+            pwm_select = pwm.OCRnx[chn_B];
+            pwm_level = &(pwm.pwm_level[chn_B]);
             pwm_select_char = 'B';
             uart_SendString("Channel B selected\n\r");
         }
         else if(strcmp(argv[1], "C") == 0)
         {
-            pwm_select = &OCR1C;
-            pwm_level = &pwm_C1_level;
+            pwm_select = pwm.OCRnx[chn_C];
+            pwm_level = &(pwm.pwm_level[chn_C]);
             pwm_select_char = 'C';
             uart_SendString("Channel C selected\n\r");
         }
@@ -258,88 +264,24 @@
         sethigh_1bit(DDRB, DDB7);
     }
 
-    void _SweepPWM()
-    {
-        int level;
-
-        *pwm_select = PWM_INC * PWM_LOW;
-        for(level=PWM_LOW; level <= PWM_HIGH; level++)
-        {
-            *pwm_select += PWM_INC;
-            _delay_ms(25);
-        }
-        for(level=PWM_HIGH; level >= PWM_LOW; level--)
-        {
-            *pwm_select -= PWM_INC;
-            _delay_ms(25);
-        }
-        *pwm_level = PWM_LOW;
-        *pwm_select = *pwm_level * PWM_INC;
-    }
-
     void InitPWM()
     {
 
-        /*   16 bit timer-counter TCNT1 with output to */
-        /*   OC1C = pin PB7 [PWM 13]                   */
-        /*   OC1B = pin PB6 [PWM 12]                   */
-        /*   OC1A = pin PB5 [PWM 11]                   */
-        sethigh_1bit(DDRB, PB7);
-        sethigh_1bit(DDRB, PB6);
-        sethigh_1bit(DDRB, PB5);
-
-        /* PWM modes in pg. 145 of ATmega2560 data-sheet */
-        set_1bit(TCCR1B, WGM13, 1);
-        set_1bit(TCCR1B, WGM12, 0);
-        set_1bit(TCCR1A, WGM11, 0);
-        set_1bit(TCCR1A, WGM10, 0);
-
-        /* inverted [11] /uninverted mode [10] */
-        set_1bit(TCCR1A, COM1A1, 1);
-        set_1bit(TCCR1A, COM1A0, 0);
-
-        set_1bit(TCCR1A, COM1B1, 1);
-        set_1bit(TCCR1A, COM1B0, 0);
-
-        set_1bit(TCCR1A, COM1C1, 1);
-        set_1bit(TCCR1A, COM1C0, 0);
-
-        /* choose clock source and prescalar */
-        /* prescalar     | CS12:0    */
-        /* --------------|-----------*/
-        /* 1             | 001       */
-        /* 8             | 010       */
-        /* 64            | 011       */
-        /* 256           | 100       */
-        /* 1024          | 101       */
-        set_1bit(TCCR1B, CS12, 1);
-        set_1bit(TCCR1B, CS11, 0);
-        set_1bit(TCCR1B, CS10, 0);
+        /* Initialize timer object */
+        TIMER_Init(&timer, 1);
 
         /* Configured for -90 to 90 deg with increments of 3 deg */
+        PWM_TimerConfig(&pwm, &timer, SERVO_PWM);
 
-        /* set TOP */
-        ICR1 = PWM_MAX;
-
-        /* do a sweep to init and reset angle */
-        pwm_select = &OCR1A;
-        pwm_level = &pwm_A1_level;
-        _SweepPWM();
-
-        pwm_select = &OCR1B;
-        pwm_level = &pwm_B1_level;
-        _SweepPWM();
-
-        pwm_select = &OCR1C;
-        pwm_level = &pwm_C1_level;
-        _SweepPWM();
-
-       /* start from zero */
-        TCNT1 = 0x0000;
+        /* (max, min, idle, step) */
+        uint16_t pwm_config[4] = {PWM_HIGH, PWM_LOW, PWM_IDLE, PWM_INC};
+        PWM_PwmConfig(&pwm,pwm_config, chn_A);
+        PWM_PwmConfig(&pwm,pwm_config, chn_B);
+        PWM_PwmConfig(&pwm,pwm_config, chn_C);
 
         /* pick PWM12 [PIN 6] */
-        pwm_select = &OCR1B;
-        pwm_level = &pwm_B1_level;
+        pwm_select = pwm.OCRnx[chn_B];
+        pwm_level = &(pwm.pwm_level[chn_B]);
         pwm_select_char = 'B';
     }
 
