@@ -66,7 +66,7 @@ char str_temp[20];
 /*  Registered commands and callbacks */
 /* ---------------------------------- */
 
-#define CMD_LIST_LEN 8 // exact fixed number of commands at runtime
+#define CMD_LIST_LEN 9 // exact fixed number of commands at runtime
 
 char str_help[] = 
     "\n\r# List of commands\n\r\n\r"
@@ -74,6 +74,7 @@ char str_help[] =
     "status : output current PWM level \n\r"
     "inc : increase PWM level by one unit \n\r"
     "dec : decrease PWM level by one unit \n\r"
+    "idle : set PWM level to idle \n\r"
     "mode : change mode to 'manual' \n\r"
     "select: change PWM channel to 'A,B,C' \n\r"
     "frequency : Displays the pwm frequency in Hz\n\r"
@@ -81,7 +82,7 @@ char str_help[] =
     "\n\r";
 
 char *cmd_name[CMD_LIST_LEN] = {
-    "help", "status", "inc", "dec", "mode", "select", "frequency", "duty_cycle"
+    "help", "status", "inc", "dec", "idle", "mode", "select", "frequency", "duty_cycle"
 };
 
 int cbk_help(uint8_t argc, char **argv)
@@ -110,6 +111,11 @@ int cbk_inc_pwm_level(uint8_t argc, char **argv)
 int cbk_dec_pwm_level(uint8_t argc, char **argv)
 {
     return PWM_Dec(&pwm, pwm_chn);
+}
+
+int cbk_idle_pwm_level(uint8_t argc, char **argv)
+{
+    return PWM_Idle(&pwm, pwm_chn);
 }
 
 int cbk_mode(uint8_t argc, char **argv)
@@ -189,6 +195,7 @@ int cbk_duty_cycle(uint8_t argc, char **argv)
 int (*cmd_list[CMD_LIST_LEN])(uint8_t, char **) = {
     &cbk_help,
     &cbk_print_pwm_level, &cbk_inc_pwm_level, &cbk_dec_pwm_level,
+    &cbk_idle_pwm_level,
     &cbk_mode, &cbk_select, &cbk_pwm_frequency, &cbk_duty_cycle
 };
 
