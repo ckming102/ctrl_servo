@@ -66,7 +66,7 @@ char str_temp[20];
 /*  Registered commands and callbacks */
 /* ---------------------------------- */
 
-#define CMD_LIST_LEN 7 // exact fixed number of commands at runtime
+#define CMD_LIST_LEN 8 // exact fixed number of commands at runtime
 
 char str_help[] = 
     "\n\r# List of commands\n\r\n\r"
@@ -77,10 +77,11 @@ char str_help[] =
     "mode : change mode to 'manual' \n\r"
     "select: change PWM channel to 'A,B,C' \n\r"
     "frequency : Displays the pwm frequency in Hz\n\r"
+    "duty_cycle : Displays the duty cycle of currently selected channel\n\r"
     "\n\r";
 
 char *cmd_name[CMD_LIST_LEN] = {
-    "help", "status", "inc", "dec", "mode", "select", "frequency"
+    "help", "status", "inc", "dec", "mode", "select", "frequency", "duty_cycle"
 };
 
 int cbk_help(uint8_t argc, char **argv)
@@ -176,10 +177,19 @@ int cbk_pwm_frequency(uint8_t argc, char **argv)
     return 0;
 }
 
+int cbk_duty_cycle(uint8_t argc, char **argv)
+{
+    PWM_DutyCycle(&pwm, pwm_chn, str_tmp);
+    sprintf(str_buffer,"Duty Cycle: %s",str_tmp);
+    uart_SendString(str_buffer);
+    return 0;
+}
+
+
 int (*cmd_list[CMD_LIST_LEN])(uint8_t, char **) = {
     &cbk_help,
     &cbk_print_pwm_level, &cbk_inc_pwm_level, &cbk_dec_pwm_level,
-    &cbk_mode, &cbk_select, &cbk_pwm_frequency
+    &cbk_mode, &cbk_select, &cbk_pwm_frequency, &cbk_duty_cycle
 };
 
 /* --------------------------- */
