@@ -49,9 +49,8 @@
     TIMER timer;
     PWM pwm;
 
-    volatile uint16_t *pwm_select;
+    volatile PWM_Channel pwm_chn;
     volatile char pwm_select_char;
-    volatile uint16_t *pwm_level;
 
     uint8_t slider_pos;
 
@@ -92,7 +91,7 @@
             str_buffer,
             "PWM Level: %d / %d  LOW / HIGH: %d / %d  "
             "PWM Select: %c \n\r",
-            *pwm_level, PWM_STEPS, PWM_LOW, PWM_HIGH, pwm_select_char
+            pwm.pwm_level[pwm_chn], PWM_STEPS, PWM_LOW, PWM_HIGH, pwm_select_char
         );
         uart_SendString(str_buffer);
         return 0;
@@ -100,22 +99,12 @@
 
     int cbk_inc_pwm_level(uint8_t argc, char **argv)
     {
-        if(*pwm_level < PWM_HIGH)
-        {
-            *pwm_select += PWM_INC;
-            (*pwm_level)++;
-        }
-        return 0;
+        return PWM_Inc(&pwm, pwm_chn);
     }
 
     int cbk_dec_pwm_level(uint8_t argc, char **argv)
     {
-        if(*pwm_level > PWM_LOW)
-        {
-            *pwm_select -= PWM_INC;
-            (*pwm_level)--;
-        }
-        return 0;
+        return PWM_Dec(&pwm, pwm_chn);
     }
 
     int cbk_mode(uint8_t argc, char **argv)
@@ -139,8 +128,8 @@
             for (i = 0; i < PWM_STEPS_INT + 2; i++) uart_SendByte(' ');
             uart_SendByte(']');
             uart_SendString("\r[");
-            for (i = 0; i < *pwm_level - PWM_LOW; i++) uart_SendByte('=');
-            slider_pos = *pwm_level - PWM_LOW;
+            for (i = 0; i < pwm.pwm_level[pwm_chn] - PWM_LOW; i++) uart_SendByte('=');
+            slider_pos = pwm.pwm_level[pwm_chn] - PWM_LOW;
         }
         else uart_SendString("Unknown mode\n\r");
         return 0;
@@ -154,23 +143,20 @@
         }
         else if(strcmp(argv[1], "A") == 0)
         {
-            pwm_select = pwm.OCRnx[chn_A];
-            pwm_level = &(pwm.pwm_level[chn_A]);
             pwm_select_char = 'A';
+            pwm_chn = chn_A;
             uart_SendString("Channel A selected\n\r");
         }
         else if(strcmp(argv[1], "B") == 0)
         {
-            pwm_select = pwm.OCRnx[chn_B];
-            pwm_level = &(pwm.pwm_level[chn_B]);
             pwm_select_char = 'B';
+            pwm_chn = chn_B;
             uart_SendString("Channel B selected\n\r");
         }
         else if(strcmp(argv[1], "C") == 0)
         {
-            pwm_select = pwm.OCRnx[chn_C];
-            pwm_level = &(pwm.pwm_level[chn_C]);
             pwm_select_char = 'C';
+            pwm_chn = chn_C;
             uart_SendString("Channel C selected\n\r");
         }
         else uart_SendString("Unknown channel\n\r");
@@ -208,7 +194,7 @@
             case 'A':
                 if(status.bracket)
                 {
-                    cbk_inc_pwm_level(1, argv);
+                    PWM_Inc(&pwm, pwm_chn);
                     status.bracket = FALSE;
                     if(slider_pos < PWM_STEPS_INT)
                     {
@@ -222,7 +208,7 @@
             case 'B':
                 if(status.bracket)
                 {
-                    cbk_dec_pwm_level(1, argv);
+                    PWM_Dec(&pwm, pwm_chn);
                     status.bracket = FALSE;
                     if(slider_pos > 0)
                     {
@@ -280,9 +266,8 @@
         PWM_PwmConfig(&pwm,pwm_config, chn_C);
 
         /* pick PWM12 [PIN 6] */
-        pwm_select = pwm.OCRnx[chn_B];
-        pwm_level = &(pwm.pwm_level[chn_B]);
         pwm_select_char = 'B';
+        pwm_chn = chn_B;
     }
 
     void InitState()
