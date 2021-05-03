@@ -82,10 +82,10 @@ extern uint8_t UART_ID;
 /* ----------------- */
 /*  uart interfaces  */
 /* ----------------- */
-void uart_Init(uint8_t);
-void uart_SendByte(char data);
-void uart_SendString(char text[]);
-void uart_SendInt(int data);
-void uart_FlushRxBuffer(void);
+extern void uart_Init(uint8_t);
+extern void uart_SendByte(char data);
+extern void uart_SendString(char text[]);
+extern void uart_SendInt(int data);
+extern void uart_FlushRxBuffer(void);
 
 #endif

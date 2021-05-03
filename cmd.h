@@ -31,13 +31,13 @@ extern uint8_t argc;
 /* ----------------------------------- */
 
 /* tokenize str_buffer for argument passing, str_buffer is modified */
-uint8_t tokenize(char **tokens, char *str_buffer, const char* delim);
+extern uint8_t tokenize(char **tokens, char *str_buffer, const char* delim);
 
 /* for parsing commands in cli context */
-void cli_ParseCommand(unsigned int cmd_list_len);
+extern void cli_ParseCommand(unsigned int cmd_list_len);
 
 /* behavior after keypress */
-void cli_Keypress();
+extern void cli_Keypress();
 
 
 #endif
