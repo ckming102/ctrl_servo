@@ -95,9 +95,14 @@ int cbk_print_pwm_level(uint8_t argc, char **argv)
 {
     sprintf(
         str_buffer,
-        "PWM Level: %d / %d  LOW / HIGH: %d / %d  "
+        "PWM Level: %d / %d  LOW / IDLE / HIGH: %d / %d / %d  "
         "PWM Select: %c \n\r",
-        pwm.pwm_level[pwm_chn], PWM_STEPS, PWM_LOW, PWM_HIGH, pwm_select_char
+        pwm.pwm_level[pwm_chn],
+        pwm.pwm_step[pwm_chn],
+        pwm.pwm_level_min[pwm_chn],
+        pwm.pwm_level_idle[pwm_chn],
+        pwm.pwm_level_max[pwm_chn],
+        pwm_select_char
     );
     uart_SendString(str_buffer);
     return 0;
@@ -289,7 +294,7 @@ void InitPWM()
     PWM_TimerConfig(&pwm, &timer, SERVO_PWM);
 
     /* (max, min, idle, step) */
-    uint16_t pwm_config[4] = {PWM_HIGH, PWM_LOW, PWM_IDLE, PWM_INC};
+    uint16_t pwm_config[4] = {PWM_HIGH, PWM_LOW, PWM_IDLE, PWM_STEPS};
     PWM_PwmConfig(&pwm,pwm_config, chn_A);
     PWM_PwmConfig(&pwm,pwm_config, chn_B);
     PWM_PwmConfig(&pwm,pwm_config, chn_C);

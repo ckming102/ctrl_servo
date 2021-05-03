@@ -156,7 +156,7 @@ void PWM_PwmConfig(PWM *pwm, uint16_t pwm_config[4], PWM_Channel chn_x)
     pwm->pwm_level_max[chn_x]  = pwm_config[0];
     pwm->pwm_level_min[chn_x]  = pwm_config[1];
     pwm->pwm_level_idle[chn_x] = pwm_config[2];
-    pwm->pwm_step[chn_x]        = pwm_config[3];
+    pwm->pwm_step[chn_x]       = pwm_config[3];
 
     pwm->pwm_level[chn_x] = pwm->pwm_level_idle[chn_x];
     *(pwm->OCRnx[chn_x]) = pwm->pwm_level[chn_x] * pwm->pwm_step[chn_x];
