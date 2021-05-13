@@ -147,9 +147,13 @@ void uart_SendByte(char data)
 
 void uart_SendString(char Str[])
 {
-    uint8_t n = 0;
-    while(Str[n])
-       uart_SendByte(Str[n++]);
+    char * ptr;
+    ptr = Str;
+    while(*ptr)
+    {
+       uart_SendByte(*ptr);
+       ptr++;
+    }
 }
 
 void uart_SendInt(int x)
