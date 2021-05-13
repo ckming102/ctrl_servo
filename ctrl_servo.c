@@ -46,9 +46,11 @@
 #define PWM_IDLE 50
 #define PWM_STEPS_INT 58
 
-TIMER timer;
-PWM pwm;
+TIMER timer1;
+TIMER timer4;
 
+PWM pwm_grp[2];
+volatile uint8_t pwm_select = 0;
 volatile PWM_Channel pwm_chn;
 volatile char pwm_select_char;
 
@@ -95,14 +97,15 @@ int cbk_print_pwm_level(uint8_t argc, char **argv)
 {
     sprintf(
         str_buffer,
-        "PWM Level: %d / %d  LOW / IDLE / HIGH: %d / %d / %d  "
-        "PWM Select: %c \n\r",
-        pwm.pwm_level[pwm_chn],
-        pwm.pwm_step[pwm_chn],
-        pwm.pwm_level_min[pwm_chn],
-        pwm.pwm_level_idle[pwm_chn],
-        pwm.pwm_level_max[pwm_chn],
-        pwm_select_char
+        "PWM Level / Inc: %d / %d  LOW / IDLE / HIGH: %d / %d / %d  "
+        "PWM Select: %c%d \n\r",
+        pwm_grp[pwm_select].pwm_level[pwm_chn],
+        pwm_grp[pwm_select].pwm_step[pwm_chn],
+        pwm_grp[pwm_select].pwm_level_min[pwm_chn],
+        pwm_grp[pwm_select].pwm_level_idle[pwm_chn],
+        pwm_grp[pwm_select].pwm_level_max[pwm_chn],
+        pwm_select_char,
+        pwm_select
     );
     uart_SendString(str_buffer);
     return 0;
@@ -110,17 +113,17 @@ int cbk_print_pwm_level(uint8_t argc, char **argv)
 
 int cbk_inc_pwm_level(uint8_t argc, char **argv)
 {
-    return PWM_Inc(&pwm, pwm_chn);
+    return PWM_Inc(&pwm_grp[pwm_select], pwm_chn);
 }
 
 int cbk_dec_pwm_level(uint8_t argc, char **argv)
 {
-    return PWM_Dec(&pwm, pwm_chn);
+    return PWM_Dec(&pwm_grp[pwm_select], pwm_chn);
 }
 
 int cbk_idle_pwm_level(uint8_t argc, char **argv)
 {
-    return PWM_Idle(&pwm, pwm_chn);
+    return PWM_Idle(&pwm_grp[pwm_select], pwm_chn);
 }
 
 int cbk_mode(uint8_t argc, char **argv)
@@ -146,8 +149,8 @@ int cbk_mode(uint8_t argc, char **argv)
         for (i = 0; i < PWM_STEPS_INT + 2; i++) uart_SendByte(' ');
         uart_SendByte(']');
         uart_SendString("\r[");
-        for (i = 0; i < pwm.pwm_level[pwm_chn] - PWM_LOW; i++) uart_SendByte('=');
-        slider_pos = pwm.pwm_level[pwm_chn] - PWM_LOW;
+        for (i = 0; i < pwm_grp[pwm_select].pwm_level[pwm_chn] - PWM_LOW; i++) uart_SendByte('=');
+        slider_pos = pwm_grp[pwm_select].pwm_level[pwm_chn] - PWM_LOW;
     }
     else if(strcmp(argv[1], "game") == 0)
     {
@@ -189,14 +192,25 @@ int cbk_select(uint8_t argc, char **argv)
         pwm_chn = chn_C;
         uart_SendString("Channel C selected\n\r");
     }
-    else uart_SendString("Unknown channel\n\r");
+    else if(strcmp(argv[1], "0") == 0)
+    {
+        pwm_select = 0;
+        uart_SendString("PWM Group 0 selected\n\r");
+    }
+    else if(strcmp(argv[1], "1") == 0)
+    {
+        pwm_select = 1;
+        uart_SendString("PWM Group 1 selected\n\r");
+    }
+    else uart_SendString("Unknown channel / group\n\r");
 
     return 0;
 }
 
 int cbk_pwm_frequency(uint8_t argc, char **argv)
 {
-    PWM_FrequencyHz(&pwm, str_temp);
+    // The calculation is completely off. Need to finx in pwm.c
+    PWM_FrequencyHz(&pwm_grp[pwm_select], str_temp);
     sprintf(str_buffer,"PWM Frequency: %s\n\r",str_temp);
     uart_SendString(str_buffer);
     return 0;
@@ -204,7 +218,8 @@ int cbk_pwm_frequency(uint8_t argc, char **argv)
 
 int cbk_duty_cycle(uint8_t argc, char **argv)
 {
-    PWM_DutyCycle(&pwm, pwm_chn, str_temp);
+    // The calculation is completely off. Need to finx in pwm.c
+    PWM_DutyCycle(&pwm_grp[pwm_select], pwm_chn, str_temp);
     sprintf(str_buffer,"Duty Cycle: %s\n\r",str_temp);
     uart_SendString(str_buffer);
     return 0;
@@ -244,10 +259,10 @@ void manual_Keypress()
             {
                 status.bracket = FALSE;
                 if((slider_pos < PWM_STEPS_INT) &&
-                    (pwm.pwm_level[pwm_chn] < pwm.pwm_level_max[pwm_chn])
+                    (pwm_grp[pwm_select].pwm_level[pwm_chn] < pwm_grp[pwm_select].pwm_level_max[pwm_chn])
                   )
                 {
-                    PWM_Inc(&pwm, pwm_chn);
+                    PWM_Inc(&pwm_grp[pwm_select], pwm_chn);
                     uart_SendByte('=');
                     slider_pos++;
                 }
@@ -260,10 +275,10 @@ void manual_Keypress()
             {
                 status.bracket = FALSE;
                 if((slider_pos > 0) && 
-                    (pwm.pwm_level[pwm_chn] > pwm.pwm_level_min[pwm_chn])
+                    (pwm_grp[pwm_select].pwm_level[pwm_chn] > pwm_grp[pwm_select].pwm_level_min[pwm_chn])
                 )
                 {
-                    PWM_Dec(&pwm, pwm_chn);
+                    PWM_Dec(&pwm_grp[pwm_select], pwm_chn);
                     uart_SendByte('\b');
                     uart_SendByte(' ');
                     uart_SendByte('\b');
@@ -314,7 +329,7 @@ void game_Keypress()
         case 'C':
             if(status.bracket)
             {
-                PWM_Inc(&pwm, chn_A);
+                PWM_Inc(&pwm_grp[0], chn_A);
                 status.bracket = FALSE;
             }
         break;
@@ -323,7 +338,7 @@ void game_Keypress()
         case 'D':
             if(status.bracket)
             {
-                PWM_Dec(&pwm, chn_A);
+                PWM_Dec(&pwm_grp[0], chn_A);
                 status.bracket = FALSE;
             }
         break;
@@ -334,7 +349,7 @@ void game_Keypress()
         case 'A':
             if(status.bracket)
             {
-                PWM_Inc(&pwm, chn_B);
+                PWM_Inc(&pwm_grp[0], chn_B);
                 status.bracket = FALSE;
             }
         break;
@@ -343,7 +358,7 @@ void game_Keypress()
         case 'B':
             if(status.bracket)
             {
-                PWM_Dec(&pwm, chn_B);
+                PWM_Dec(&pwm_grp[0], chn_B);
                 status.bracket = FALSE;
             }
         break;
@@ -354,7 +369,7 @@ void game_Keypress()
         case 'W':
             if(!status.bracket)
             {
-                PWM_Inc(&pwm, chn_C);
+                PWM_Inc(&pwm_grp[0], chn_C);
             }
         break;
 
@@ -362,7 +377,7 @@ void game_Keypress()
         case 'S':
             if(!status.bracket)
             {
-                PWM_Dec(&pwm, chn_C);
+                PWM_Dec(&pwm_grp[0], chn_C);
             }
         break;
 
@@ -370,7 +385,7 @@ void game_Keypress()
         case 'w':
             if(!status.bracket)
             {
-                PWM_Inc(&pwm, chn_C);
+                PWM_Inc(&pwm_grp[0], chn_C);
             }
         break;
 
@@ -378,7 +393,7 @@ void game_Keypress()
         case 's':
             if(!status.bracket)
             {
-                PWM_Dec(&pwm, chn_C);
+                PWM_Dec(&pwm_grp[0], chn_C);
             }
         break;
 
@@ -415,23 +430,37 @@ void InitUART()
 void InitPWM()
 {
 
-    /* Initialize timer object */
-    TIMER_Init(&timer, 1);
+    /* Initialize timer objects */
+    TIMER_Init(&timer1, 1);
+    TIMER_Init(&timer4, 4);
+
+    PWM_TimerConfig(&pwm_grp[0], &timer1, SERVO_PWM);
+    PWM_TimerConfig(&pwm_grp[1], &timer4, SERVO_PWM);
+
+    /* pwm config values (max, min, idle, step) */
 
     /* Configured for -90 to 90 deg with increments of 3 deg */
-    PWM_TimerConfig(&pwm, &timer, SERVO_PWM);
+    uint16_t pwm_config_A0[4] = {72, 14, 50, PWM_INC};
+    PWM_PwmConfig(&pwm_grp[0],pwm_config_A0, chn_A);
 
-    /* (max, min, idle, step) */
-    uint16_t pwm_config_A[4] = {72, 14, 50, PWM_INC};
-    PWM_PwmConfig(&pwm,pwm_config_A, chn_A);
+    uint16_t pwm_config_B0[4] = {42, 29, 38, PWM_INC};
+    PWM_PwmConfig(&pwm_grp[0],pwm_config_B0, chn_B);
 
-    uint16_t pwm_config_B[4] = {42, 29, 38, PWM_INC};
-    PWM_PwmConfig(&pwm,pwm_config_B, chn_B);
+    uint16_t pwm_config_C0[4] = {65, 55, 60, PWM_INC};
+    PWM_PwmConfig(&pwm_grp[0],pwm_config_C0, chn_C);
 
-    uint16_t pwm_config_C[4] = {65, 55, 60, PWM_INC};
-    PWM_PwmConfig(&pwm,pwm_config_C, chn_C);
+    uint16_t pwm_config_A1[4] = {65, 49, 55, PWM_INC};
+    PWM_PwmConfig(&pwm_grp[1],pwm_config_A1, chn_A);
+
+    uint16_t pwm_config_B1[4] = {72, 14, 50, PWM_INC};
+    PWM_PwmConfig(&pwm_grp[1],pwm_config_B1, chn_B);
+
+    uint16_t pwm_config_C1[4] = {72, 51, 60, PWM_INC};
+    PWM_PwmConfig(&pwm_grp[1],pwm_config_C1, chn_C);
+
 
     /* pick PWM11 [PIN A] */
+    pwm_select = 0;
     pwm_select_char = 'A';
     pwm_chn = chn_A;
 }
