@@ -47,10 +47,10 @@ struct GLOBAL_FLAGS {
 volatile struct GLOBAL_FLAGS status;
 
 /* context */
-#define N_CONTEXT_TYPES 2
+#define N_CONTEXT_TYPES 3
 enum context_types
 {
-  context_cli, context_manual
+  context_cli, context_manual, context_game
 };
 
 volatile uint8_t context;

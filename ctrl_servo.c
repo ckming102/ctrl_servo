@@ -128,8 +128,10 @@ int cbk_mode(uint8_t argc, char **argv)
     if(argc < 2)
     {
         uart_SendString("Insufficient number of inputs\n\r");
+        return 0;
     }
-    else if(strcmp(argv[1], "manual") == 0)
+    
+    if(strcmp(argv[1], "manual") == 0)
     {
         uint8_t i;
 
@@ -146,6 +148,18 @@ int cbk_mode(uint8_t argc, char **argv)
         uart_SendString("\r[");
         for (i = 0; i < pwm.pwm_level[pwm_chn] - PWM_LOW; i++) uart_SendByte('=');
         slider_pos = pwm.pwm_level[pwm_chn] - PWM_LOW;
+    }
+    else if(strcmp(argv[1], "game") == 0)
+    {
+        /* change context */
+        context = context_game;
+
+        uart_SendString(
+            "\n\r[GAME MODE]"
+            " up/down [channel A], left/right [channel B], "
+            " W/S [channel C]; enter to exit\n\r"
+        );
+
     }
     else uart_SendString("Unknown mode\n\r");
     return 0;
@@ -205,7 +219,7 @@ int (*cmd_list[CMD_LIST_LEN])(uint8_t, char **) = {
 };
 
 /* --------------------------- */
-/*  Manual moode event handler */
+/*  Manual mode event handler  */
 /* --------------------------- */
 void manual_Keypress()
 {
@@ -228,10 +242,12 @@ void manual_Keypress()
         case 'A':
             if(status.bracket)
             {
-                PWM_Inc(&pwm, pwm_chn);
                 status.bracket = FALSE;
-                if(slider_pos < PWM_STEPS_INT)
+                if((slider_pos < PWM_STEPS_INT) &&
+                    (pwm.pwm_level[pwm_chn] < pwm.pwm_level_max[pwm_chn])
+                  )
                 {
+                    PWM_Inc(&pwm, pwm_chn);
                     uart_SendByte('=');
                     slider_pos++;
                 }
@@ -242,10 +258,12 @@ void manual_Keypress()
         case 'B':
             if(status.bracket)
             {
-                PWM_Dec(&pwm, pwm_chn);
                 status.bracket = FALSE;
-                if(slider_pos > 0)
+                if((slider_pos > 0) && 
+                    (pwm.pwm_level[pwm_chn] > pwm.pwm_level_min[pwm_chn])
+                )
                 {
+                    PWM_Dec(&pwm, pwm_chn);
                     uart_SendByte('\b');
                     uart_SendByte(' ');
                     uart_SendByte('\b');
@@ -260,6 +278,116 @@ void manual_Keypress()
             status.esc_char = FALSE;
             status.bracket = FALSE;
             uart_SendString("\n\r");
+            uart_FlushRxBuffer();
+        break;
+
+        default:
+        break;
+    }
+
+    status.rx_int = FALSE;
+}
+
+/* --------------------------- */
+/*  Game mode event handler    */
+/* --------------------------- */
+void game_Keypress()
+{
+    /* copy-in byte */
+    char data = *UART_UDRn;
+
+    switch(data)
+    {
+        /* escape character */
+        case '\x1b':
+            status.esc_char = TRUE;
+        break;
+
+        case '[':
+            status.bracket = (status.esc_char == TRUE) ? TRUE : FALSE; 
+            status.esc_char = FALSE;
+        break;
+
+        /* --- Channel A -- */
+
+        /* right key */
+        case 'C':
+            if(status.bracket)
+            {
+                PWM_Inc(&pwm, chn_A);
+                status.bracket = FALSE;
+            }
+        break;
+
+        /* left key */
+        case 'D':
+            if(status.bracket)
+            {
+                PWM_Dec(&pwm, chn_A);
+                status.bracket = FALSE;
+            }
+        break;
+
+        /* --- Channel B -- */
+
+        /* up key */
+        case 'A':
+            if(status.bracket)
+            {
+                PWM_Inc(&pwm, chn_B);
+                status.bracket = FALSE;
+            }
+        break;
+
+        /* down key */
+        case 'B':
+            if(status.bracket)
+            {
+                PWM_Dec(&pwm, chn_B);
+                status.bracket = FALSE;
+            }
+        break;
+
+        /* --- Channel C -- */
+
+        /* W key */
+        case 'W':
+            if(!status.bracket)
+            {
+                PWM_Inc(&pwm, chn_C);
+            }
+        break;
+
+        /* S key */
+        case 'S':
+            if(!status.bracket)
+            {
+                PWM_Dec(&pwm, chn_C);
+            }
+        break;
+
+        /* w key */
+        case 'w':
+            if(!status.bracket)
+            {
+                PWM_Inc(&pwm, chn_C);
+            }
+        break;
+
+        /* s key */
+        case 's':
+            if(!status.bracket)
+            {
+                PWM_Dec(&pwm, chn_C);
+            }
+        break;
+
+        /* enter key */
+        case 13:
+            context = context_cli;
+            status.esc_char = FALSE;
+            status.bracket = FALSE;
+            uart_SendString("Exit game mode\n\r");
             uart_FlushRxBuffer();
         break;
 
@@ -294,14 +422,18 @@ void InitPWM()
     PWM_TimerConfig(&pwm, &timer, SERVO_PWM);
 
     /* (max, min, idle, step) */
-    uint16_t pwm_config[4] = {PWM_HIGH, PWM_LOW, PWM_IDLE, PWM_INC};
-    PWM_PwmConfig(&pwm,pwm_config, chn_A);
-    PWM_PwmConfig(&pwm,pwm_config, chn_B);
-    PWM_PwmConfig(&pwm,pwm_config, chn_C);
+    uint16_t pwm_config_A[4] = {72, 14, 50, PWM_INC};
+    PWM_PwmConfig(&pwm,pwm_config_A, chn_A);
 
-    /* pick PWM12 [PIN 6] */
-    pwm_select_char = 'B';
-    pwm_chn = chn_B;
+    uint16_t pwm_config_B[4] = {42, 29, 38, PWM_INC};
+    PWM_PwmConfig(&pwm,pwm_config_B, chn_B);
+
+    uint16_t pwm_config_C[4] = {65, 55, 60, PWM_INC};
+    PWM_PwmConfig(&pwm,pwm_config_C, chn_C);
+
+    /* pick PWM11 [PIN A] */
+    pwm_select_char = 'A';
+    pwm_chn = chn_A;
 }
 
 void InitState()
@@ -344,6 +476,10 @@ int main()
 
             case context_manual:
                 if(status.rx_int == TRUE) manual_Keypress();
+            break;
+
+            case context_game:
+                if(status.rx_int == TRUE) game_Keypress();
             break;
 
             default:
