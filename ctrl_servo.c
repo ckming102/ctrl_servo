@@ -323,7 +323,7 @@ void game_Keypress()
             status.esc_char = FALSE;
         break;
 
-        /* --- Channel A -- */
+        /* --- Channel A0 / B1-- */
 
         /* right key */
         case 'C':
@@ -334,23 +334,32 @@ void game_Keypress()
             }
         break;
 
-        /* left key */
         case 'D':
+            /* left key */
             if(status.bracket)
             {
                 PWM_Dec(&pwm_grp[0], chn_A);
                 status.bracket = FALSE;
+            } else
+            /* D key */
+            {
+                PWM_Dec(&pwm_grp[1], chn_B);
             }
+
         break;
 
-        /* --- Channel B -- */
+        /* --- Channel B0 /B1-- */
 
-        /* up key */
         case 'A':
+            /* up key */
             if(status.bracket)
             {
                 PWM_Inc(&pwm_grp[0], chn_B);
                 status.bracket = FALSE;
+            } else 
+            /* A key */
+            {
+                PWM_Inc(&pwm_grp[1], chn_B);
             }
         break;
 
@@ -363,7 +372,7 @@ void game_Keypress()
             }
         break;
 
-        /* --- Channel C -- */
+        /* --- Channel C0 -- */
 
         /* W key */
         case 'W':
@@ -394,6 +403,92 @@ void game_Keypress()
             if(!status.bracket)
             {
                 PWM_Dec(&pwm_grp[0], chn_C);
+            }
+        break;
+
+        /* --- Channel A1 -- */
+
+        /* F key */
+        case 'F':
+            if(!status.bracket)
+            {
+                PWM_Inc(&pwm_grp[1], chn_A);
+            }
+        break;
+
+        /* R key */
+        case 'R':
+            if(!status.bracket)
+            {
+                PWM_Dec(&pwm_grp[1], chn_A);
+            }
+        break;
+
+        /* r key */
+        case 'r':
+            if(!status.bracket)
+            {
+                PWM_Inc(&pwm_grp[1], chn_A);
+            }
+        break;
+
+        /* f key */
+        case 'f':
+            if(!status.bracket)
+            {
+                PWM_Dec(&pwm_grp[1], chn_A);
+            }
+        break;
+
+        /* --- Channel B1 -- */
+
+        /* a key */
+        case 'a':
+            if(!status.bracket)
+            {
+                PWM_Inc(&pwm_grp[1], chn_B);
+            }
+        break;
+
+        /* d key */
+        case 'd':
+            if(!status.bracket)
+            {
+                PWM_Dec(&pwm_grp[1], chn_B);
+            }
+        break;
+
+        /* --- Channel C1 -- */
+
+        /* > key */
+        case '>':
+            if(!status.bracket)
+            {
+                PWM_Inc(&pwm_grp[1], chn_C);
+            }
+        break;
+
+        /* < key */
+        case '<':
+            if(!status.bracket)
+            {
+                PWM_Dec(&pwm_grp[1], chn_C);
+            }
+        break;
+
+        /* . key */
+        case '.':
+            if(!status.bracket)
+            {
+                PWM_Inc(&pwm_grp[1], chn_C);
+            }
+        break;
+
+        /* , key */
+        case ',':
+            if(!status.bracket)
+            {
+                PWM_Dec(&pwm_grp[1], chn_C);
             }
         break;
 
@@ -443,13 +538,13 @@ void InitPWM()
     uint16_t pwm_config_A0[4] = {72, 14, 50, PWM_INC};
     PWM_PwmConfig(&pwm_grp[0],pwm_config_A0, chn_A);
 
-    uint16_t pwm_config_B0[4] = {42, 29, 38, PWM_INC};
+    uint16_t pwm_config_B0[4] = {32, 20, 25, PWM_INC};
     PWM_PwmConfig(&pwm_grp[0],pwm_config_B0, chn_B);
 
     uint16_t pwm_config_C0[4] = {65, 55, 60, PWM_INC};
     PWM_PwmConfig(&pwm_grp[0],pwm_config_C0, chn_C);
 
-    uint16_t pwm_config_A1[4] = {65, 49, 55, PWM_INC};
+    uint16_t pwm_config_A1[4] = {65, 55, 60, PWM_INC};
     PWM_PwmConfig(&pwm_grp[1],pwm_config_A1, chn_A);
 
     uint16_t pwm_config_B1[4] = {72, 14, 50, PWM_INC};
