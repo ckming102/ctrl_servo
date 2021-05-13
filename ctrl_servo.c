@@ -294,7 +294,7 @@ void InitPWM()
     PWM_TimerConfig(&pwm, &timer, SERVO_PWM);
 
     /* (max, min, idle, step) */
-    uint16_t pwm_config[4] = {PWM_HIGH, PWM_LOW, PWM_IDLE, PWM_STEPS};
+    uint16_t pwm_config[4] = {PWM_HIGH, PWM_LOW, PWM_IDLE, PWM_INC};
     PWM_PwmConfig(&pwm,pwm_config, chn_A);
     PWM_PwmConfig(&pwm,pwm_config, chn_B);
     PWM_PwmConfig(&pwm,pwm_config, chn_C);
