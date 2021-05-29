@@ -535,22 +535,22 @@ void InitPWM()
     /* pwm config values (max, min, idle, step) */
 
     /* Configured for -90 to 90 deg with increments of 3 deg */
-    uint16_t pwm_config_A0[4] = {72, 14, 50, PWM_INC};
+    uint16_t pwm_config_A0[4] = {72, 14, 72, PWM_INC};
     PWM_PwmConfig(&pwm_grp[0],pwm_config_A0, chn_A);
 
-    uint16_t pwm_config_B0[4] = {50, 38, 48, PWM_INC};
+    uint16_t pwm_config_B0[4] = {50, 38, 39, PWM_INC};
     PWM_PwmConfig(&pwm_grp[0],pwm_config_B0, chn_B);
 
-    uint16_t pwm_config_C0[4] = {65, 55, 60, PWM_INC};
+    uint16_t pwm_config_C0[4] = {65, 55, 55, PWM_INC};
     PWM_PwmConfig(&pwm_grp[0],pwm_config_C0, chn_C);
 
-    uint16_t pwm_config_A1[4] = {65, 55, 65, PWM_INC};
+    uint16_t pwm_config_A1[4] = {65, 55, 55, PWM_INC};
     PWM_PwmConfig(&pwm_grp[1],pwm_config_A1, chn_A);
 
-    uint16_t pwm_config_B1[4] = {72, 14, 50, PWM_INC};
+    uint16_t pwm_config_B1[4] = {72, 14, 40, PWM_INC};
     PWM_PwmConfig(&pwm_grp[1],pwm_config_B1, chn_B);
 
-    uint16_t pwm_config_C1[4] = {72, 51, 60, PWM_INC};
+    uint16_t pwm_config_C1[4] = {72, 51, 72, PWM_INC};
     PWM_PwmConfig(&pwm_grp[1],pwm_config_C1, chn_C);
 
 
