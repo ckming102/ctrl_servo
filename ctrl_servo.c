@@ -538,13 +538,13 @@ void InitPWM()
     uint16_t pwm_config_A0[4] = {72, 14, 50, PWM_INC};
     PWM_PwmConfig(&pwm_grp[0],pwm_config_A0, chn_A);
 
-    uint16_t pwm_config_B0[4] = {32, 20, 25, PWM_INC};
+    uint16_t pwm_config_B0[4] = {50, 38, 48, PWM_INC};
     PWM_PwmConfig(&pwm_grp[0],pwm_config_B0, chn_B);
 
     uint16_t pwm_config_C0[4] = {65, 55, 60, PWM_INC};
     PWM_PwmConfig(&pwm_grp[0],pwm_config_C0, chn_C);
 
-    uint16_t pwm_config_A1[4] = {65, 55, 60, PWM_INC};
+    uint16_t pwm_config_A1[4] = {65, 55, 65, PWM_INC};
     PWM_PwmConfig(&pwm_grp[1],pwm_config_A1, chn_A);
 
     uint16_t pwm_config_B1[4] = {72, 14, 50, PWM_INC};
@@ -554,10 +554,10 @@ void InitPWM()
     PWM_PwmConfig(&pwm_grp[1],pwm_config_C1, chn_C);
 
 
-    /* pick PWM11 [PIN A] */
+    /* pick PWM11 [PIN B] */
     pwm_select = 0;
-    pwm_select_char = 'A';
-    pwm_chn = chn_A;
+    pwm_select_char = 'B';
+    pwm_chn = chn_B;
 }
 
 void InitState()
