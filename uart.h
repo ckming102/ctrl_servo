@@ -1,22 +1,22 @@
 /*==============================================================================
   Header for the UART
- =============================================================================*/
-#include "global.h"
 
+    Received bytes are copied into a ring buffer by the RX interrupt and read
+    from the main loop with uart_ReadByte(). Sent bytes go through a TX ring
+    buffer emptied by the UDRE interrupt.
+ =============================================================================*/
 #ifndef UART_H
 #define UART_H
+
+#include "global.h"
 
 /* -----------------------*/
 /*  UART Buffers defines  */
 /* -----------------------*/
-#define UART_RX_BUFFER_SIZE 128
+#define UART_RX_BUFFER_SIZE 64
 #define UART_RX_BUFFER_MASK ( UART_RX_BUFFER_SIZE - 1 )
-#define UART_TX_BUFFER_SIZE 64
+#define UART_TX_BUFFER_SIZE 128
 #define UART_TX_BUFFER_MASK ( UART_TX_BUFFER_SIZE - 1 )
-
-/*  String buffer from uart. Parsing is done in main()  */
-extern char UART_RxBuffer[UART_RX_BUFFER_SIZE];
-extern uint8_t UART_RxPtr;
 
 /* check power of 2 size */
 #if ( UART_RX_BUFFER_SIZE & UART_RX_BUFFER_MASK )
@@ -26,21 +26,11 @@ extern uint8_t UART_RxPtr;
   #error TX buffer size is not a power of 2
 #endif
 
-/* data register */
-extern volatile uint8_t  *UDRn;
+/* Baud rate: 19.2 kbps */
+#define UART_BAUD 19200UL
+#define UART_UBRR ((F_CPU / (16UL * UART_BAUD)) - 1)
 
-/* control and status registers */
-extern volatile uint8_t *UCSRnA;
-extern volatile uint8_t *UCSRnB;
-extern volatile uint8_t *UCSRnC;
-
-/* alias */
-#define UART_UDRn UDRn
-#define UART_UCSRnA UCSRnA
-#define UART_UCSRnB UCSRnB
-#define UART_UCSRnC UCSRnC
-
-/* selected UART data register: set by uart init */
+/* selected UART: set by uart init */
 extern uint8_t UART_ID;
 
 /* fixed bit positions */
@@ -75,17 +65,13 @@ extern uint8_t UART_ID;
 #define UCSZn0  1
 #define UCPOLn  0
 
-/* UDR empty interrupt */
-#define SET_UDRIE sethigh_1bit(*UART_UCSRnB, UDRIEn)
-#define CLR_UDRIE setlow_1bit(*UART_UCSRnB, UDRIEn)
-
 /* ----------------- */
 /*  uart interfaces  */
 /* ----------------- */
 extern void uart_Init(uint8_t);
+extern int16_t uart_ReadByte(void);
 extern void uart_SendByte(char data);
-extern void uart_SendString(char text[]);
+extern void uart_SendString(const char *text);
 extern void uart_SendInt(int data);
-extern void uart_FlushRxBuffer(void);
 
 #endif

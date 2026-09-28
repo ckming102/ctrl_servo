@@ -1,6 +1,7 @@
 /*==============================================================================
   Function declarations and data structures for the UART
  =============================================================================*/
+#include <stdlib.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include "global.h"
@@ -10,26 +11,19 @@
 /*  Extern variables  */
 /* ------------------ */
 
-/* RX buffer and pointer for uart */
-char UART_RxBuffer[UART_RX_BUFFER_SIZE];
-uint8_t UART_RxPtr;
-
 uint8_t UART_ID;
-
-/* data register */
-volatile uint8_t  *UDRn;
-
-/* control and status registers */
-volatile uint8_t *UCSRnA;
-volatile uint8_t *UCSRnB;
-volatile uint8_t *UCSRnC;
 
 /* ------------------ */
 /*  Static variables  */
 /* ------------------ */
 
+/* RX buffer and head/tail pointers (idx counters) */
+static volatile char UART_RxBuffer[UART_RX_BUFFER_SIZE];
+static volatile uint8_t UART_RxHead;
+static volatile uint8_t UART_RxTail;
+
 /* TX buffer and head/tail pointers (idx counters) */
-static char UART_TxBuffer[UART_TX_BUFFER_SIZE];
+static volatile char UART_TxBuffer[UART_TX_BUFFER_SIZE];
 static volatile uint8_t UART_TxHead;
 static volatile uint8_t UART_TxTail;
 
@@ -37,21 +31,31 @@ static volatile uint8_t UART_TxTail;
 /* Pointers to Registers */
 /* ===================== */
 
+/* data register */
+static volatile uint8_t  *UDRn;
+
+/* control and status registers */
+static volatile uint8_t *UCSRnA;
+static volatile uint8_t *UCSRnB;
+static volatile uint8_t *UCSRnC;
+
 /* baud rate registers */
-static volatile uint16_t *UBRRn;
 static volatile uint8_t  *UBRRnL;
 static volatile uint8_t  *UBRRnH;
+
+/* UDR empty interrupt */
+#define SET_UDRIE sethigh_1bit(*UCSRnB, UDRIEn)
+#define CLR_UDRIE setlow_1bit(*UCSRnB, UDRIEn)
 
 /* ---------------------- */
 /*  Function definitions  */
 /* ---------------------- */
 
-void uart_Select(uint8_t uart_id)
+static void uart_Select(uint8_t uart_id)
 {
     switch(uart_id)
     {
         case 1:
-            UBRRn  = &UBRR1;
             UBRRnL = &UBRR1L;
             UBRRnH = &UBRR1H;
             UDRn   = &UDR1;
@@ -62,7 +66,6 @@ void uart_Select(uint8_t uart_id)
         break;
 
         case 2:
-            UBRRn  = &UBRR2;
             UBRRnL = &UBRR2L;
             UBRRnH = &UBRR2H;
             UDRn   = &UDR2;
@@ -73,7 +76,6 @@ void uart_Select(uint8_t uart_id)
         break;
 
         case 3:
-            UBRRn  = &UBRR3;
             UBRRnL = &UBRR3L;
             UBRRnH = &UBRR3H;
             UDRn   = &UDR3;
@@ -85,7 +87,6 @@ void uart_Select(uint8_t uart_id)
 
         /* default is zero */
         default:
-            UBRRn  = &UBRR0;
             UBRRnL = &UBRR0L;
             UBRRnH = &UBRR0H;
             UDRn   = &UDR0;
@@ -103,27 +104,40 @@ void uart_Init(uint8_t uart_id)
     uart_Select(uart_id);
 
     /* -- Set baud rates, refer to datasheet -- */
-    // 19.2 kbps trasfer speed running at 16 MHz.
-    #define BAUD 51
-    // 19.2 kbps trasfer speed running at 8 MHz.
-    //#define BAUD 25
-    // 19.2 kbps trasfer speed running at 3.6864 MHz.
-    // #define BAUD 11
+    // 19.2 kbps: UBRR = 51 at 16 MHz, 25 at 8 MHz, 11 at 3.6864 MHz
+    *UBRRnH = (uint8_t)(UART_UBRR >> 8);
+    *UBRRnL = (uint8_t)UART_UBRR;
 
-    *UBRRnH = (uint8_t)(BAUD>>8);
-    *UBRRnL = (uint8_t)BAUD;
+    /* Flush Buffers */
+    UART_RxTail = 0;
+    UART_RxHead = 0;
+    UART_TxTail = 0;
+    UART_TxHead = 0;
 
-    /* Enable receiver and transmitter, rx int */
-    *UCSRnB = (1<<RXENn)|(1<<TXENn)|(1<<RXCIEn)|(1<<TXCIEn);
- 
     /* Set frame format: 8data, 1stop bit */
     *UCSRnC = (3<<UCSZn0);
 
-    /* Flush Buffers */
-    UART_RxPtr = 0;
-    UART_RxBuffer[0] = '\0';
-    UART_TxTail = 0;
-    UART_TxHead = 0;
+    /* Enable receiver and transmitter, rx int */
+    *UCSRnB = (1<<RXENn)|(1<<TXENn)|(1<<RXCIEn);
+}
+
+
+/* # Next received byte, or -1 if none is waiting */
+int16_t uart_ReadByte(void)
+{
+    uint8_t tmptail;
+    uint8_t data;
+
+    if(UART_RxHead == UART_RxTail)
+        return -1;
+
+    /* Calculate buffer index */
+    tmptail = ( UART_RxTail + 1 ) & UART_RX_BUFFER_MASK;
+    data = UART_RxBuffer[tmptail];
+    /* Store new index */
+    UART_RxTail = tmptail;
+
+    return data;
 }
 
 
@@ -145,77 +159,72 @@ void uart_SendByte(char data)
 }
 
 
-void uart_SendString(char Str[])
+void uart_SendString(const char *str)
 {
-    char * ptr;
-    ptr = Str;
-    while(*ptr)
+    while(*str)
     {
-       uart_SendByte(*ptr);
-       ptr++;
+       uart_SendByte(*str);
+       str++;
     }
 }
 
 void uart_SendInt(int x)
 {
-    static const char dec[] = "0123456789";
-    unsigned int div_val = 10000;
+    char str[8];
 
-    if (x < 0)
-    {
-        x = - x;
-        uart_SendByte('-');
-    }
-
-    while (div_val > 1 && div_val > x)
-        div_val /= 10;
-
-    do
-    {
-        uart_SendByte (dec[x / div_val]);
-        x %= div_val;
-        div_val /= 10;
-    }
-    while(div_val);
-}
-
-void uart_FlushRxBuffer()
-{
-    UART_RxPtr = 0;
-    UART_RxBuffer[0] = '\0';
+    itoa(x, str, 10);
+    uart_SendString(str);
 }
 
 /* ---------------------- */
 /*  RX interrupt handler  */
 /* ---------------------  */
 
+/*  Reading UDRn clears the RXCn flag. Until it is read the RX interrupt keeps
+    firing, so the byte is always read here and queued for the main loop. */
+static inline void _ReceiveByte(void)
+{
+    uint8_t tmphead;
+    uint8_t data = *UDRn;
+
+    /* Calculate buffer index */
+    tmphead = ( UART_RxHead + 1 ) & UART_RX_BUFFER_MASK;
+    /* Drop the byte if the buffer is full */
+    if ( tmphead == UART_RxTail )
+        return;
+    /* Store data in buffer */
+    UART_RxBuffer[tmphead] = data;
+    /* Store new index */
+    UART_RxHead = tmphead;
+}
+
 /* alter as needed */
 
 ISR(USART0_RX_vect)
 {
-    if(UART_ID == 0) status.rx_int = TRUE;
+    if(UART_ID == 0) _ReceiveByte(); else (void)UDR0;
 }
 
 ISR(USART1_RX_vect)
 {
-    if(UART_ID == 1) status.rx_int = TRUE;
+    if(UART_ID == 1) _ReceiveByte(); else (void)UDR1;
 }
 
 ISR(USART2_RX_vect)
 {
-    if(UART_ID == 2) status.rx_int = TRUE;
+    if(UART_ID == 2) _ReceiveByte(); else (void)UDR2;
 }
 
 ISR(USART3_RX_vect)
 {
-    if(UART_ID == 3) status.rx_int = TRUE;
+    if(UART_ID == 3) _ReceiveByte(); else (void)UDR3;
 }
 
 /* ---------------------- */
 /*  TX interrupt handler  */
 /* ---------------------- */
 
-void _TransmitByte()
+static inline void _TransmitByte(void)
 {
     uint8_t UART_TxTail_tmp;
     UART_TxTail_tmp = UART_TxTail;
@@ -259,18 +268,10 @@ ISR(USART3_UDRE_vect)
     if(UART_ID == 3) _TransmitByte();
 }
 
-/*  Activated when TX is complete */
-EMPTY_INTERRUPT(USART0_TX_vect);
-EMPTY_INTERRUPT(USART1_TX_vect);
-EMPTY_INTERRUPT(USART2_TX_vect);
-EMPTY_INTERRUPT(USART3_TX_vect);
-
 /* --------------------- */
 /*  Catch bad interrupt  */
 /* --------------------- */
 
-ISR(BADISR_vect)
-{
-    /* flip blink state */
-    flip_1bit(PORTB,DDB7);
-}
+/* Ignore unexpected interrupts. (This used to toggle the pin 13 LED, but PB7 /
+   pin 13 is OC1C, the output of servo C0, so the toggle had no effect.) */
+EMPTY_INTERRUPT(BADISR_vect);

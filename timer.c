@@ -1,6 +1,9 @@
 /*==============================================================================
   Function declarations and data structures for 16 bit timers
  =============================================================================*/
+#include <stddef.h>
+#include <avr/interrupt.h>
+#include "global.h"
 #include "timer.h"
 
 /* ------------------ */
@@ -10,6 +13,9 @@
 /* ------------------ */
 /*  Static variables  */
 /* ------------------ */
+
+/* overflow callbacks indexed by timer number; only 1, 3, 4 and 5 are used */
+static void (* volatile overflow_callback[6])(void);
 
 /* ---------------------- */
 /*  Function definitions  */
@@ -27,19 +33,23 @@ int TIMER_Init(TIMER *timer, uint8_t n)
     switch(n)
     {
         case 1:
-        timer->timer_reg_loc = (volatile uint8_t *) 0x80;
+        timer->timer_reg_loc = &TCCR1A;
+        timer->TIMSKn = &TIMSK1;
         break;
 
         case 3:
-        timer->timer_reg_loc = (volatile uint8_t *) 0x90;
+        timer->timer_reg_loc = &TCCR3A;
+        timer->TIMSKn = &TIMSK3;
         break;
 
         case 4:
-        timer->timer_reg_loc = (volatile uint8_t *) 0xA0;
+        timer->timer_reg_loc = &TCCR4A;
+        timer->TIMSKn = &TIMSK4;
         break;
 
         case 5:
-        timer->timer_reg_loc = (volatile uint8_t *) 0x120;
+        timer->timer_reg_loc = &TCCR5A;
+        timer->TIMSKn = &TIMSK5;
         break;
 
         default:
@@ -50,17 +60,38 @@ int TIMER_Init(TIMER *timer, uint8_t n)
     timer->timer_n = n;
 
     /* Set register addresses */
-    timer->TCCRnA = &_SFR_MEM8(timer->timer_reg_loc + _TCCRnA);
-    timer->TCCRnB = &_SFR_MEM8(timer->timer_reg_loc + _TCCRnB);
-    timer->TCCRnC = &_SFR_MEM8(timer->timer_reg_loc + _TCCRnC);
+    timer->TCCRnA = timer->timer_reg_loc + _TCCRnA;
+    timer->TCCRnB = timer->timer_reg_loc + _TCCRnB;
+    timer->TCCRnC = timer->timer_reg_loc + _TCCRnC;
 
-    timer->ICRn   = &_SFR_MEM16(timer->timer_reg_loc + _ICRn);
-    timer->TCNTn   = &_SFR_MEM16(timer->timer_reg_loc + _TCNTn);
+    timer->ICRn  = (volatile uint16_t *)(timer->timer_reg_loc + _ICRn);
+    timer->TCNTn = (volatile uint16_t *)(timer->timer_reg_loc + _TCNTn);
 
-    timer->OCRnA = &_SFR_MEM16(timer->timer_reg_loc + _OCRnA);
-    timer->OCRnB = &_SFR_MEM16(timer->timer_reg_loc + _OCRnB);
-    timer->OCRnC = &_SFR_MEM16(timer->timer_reg_loc + _OCRnC);
+    timer->OCRnA = (volatile uint16_t *)(timer->timer_reg_loc + _OCRnA);
+    timer->OCRnB = (volatile uint16_t *)(timer->timer_reg_loc + _OCRnB);
+    timer->OCRnC = (volatile uint16_t *)(timer->timer_reg_loc + _OCRnC);
 
     return 0;
 }
 
+/* # Register an overflow callback and enable / disable the interrupt */
+void TIMER_SetOverflowCallback(TIMER *timer, void (*callback)(void))
+{
+    overflow_callback[timer->timer_n] = callback;
+    set_1bit(*(timer->TIMSKn), TOIEn, callback != NULL);
+}
+
+/* ---------------------------- */
+/*  Overflow interrupt handlers */
+/* ---------------------------- */
+
+static inline void _RunOverflowCallback(uint8_t n)
+{
+    void (*callback)(void) = overflow_callback[n];
+    if(callback) callback();
+}
+
+ISR(TIMER1_OVF_vect) { _RunOverflowCallback(1); }
+ISR(TIMER3_OVF_vect) { _RunOverflowCallback(3); }
+ISR(TIMER4_OVF_vect) { _RunOverflowCallback(4); }
+ISR(TIMER5_OVF_vect) { _RunOverflowCallback(5); }
