@@ -2,10 +2,10 @@
   Function declarations and data structures for 16 bit timers
  =============================================================================*/
 #include <stdio.h>
+#include <util/atomic.h>
 #include "global.h"
 #include "timer.h"
 #include "pwm.h"
-#include <util/delay.h> 
 
 /* ------------------ */
 /*  Extern variables  */
@@ -21,27 +21,79 @@
 
 /* # Set timer configuration
 
-  Setup timer for phase-freq correct PWM output. Check that output frequency is
-  20Mhz. Details of modes in pg. 145 of ATmega2560 data-sheet and Arduino pinout.
+  Setup timer for phase-freq correct PWM output (mode 8, TOP = ICRn). Details
+  of modes in pg. 145 of ATmega2560 data-sheet and Arduino pinout. The clock is
+  left stopped so the compare values can be set first; see PWM_Start().
 
   Parameters
   ----------
-  prescalar: size of applied prescalar; see table below
-  inverted : 1 for inverted and 0 for un-inverted
+  prescalar  : clock divider; one of 1, 8, 64, 256, 1024
+  inverted   : 1 for inverted and 0 for un-inverted
+  counter_max: TOP value, sets the PWM frequency
 */
-void PWM_TimerConfig(
+int PWM_TimerConfig(
     PWM *pwm,
     TIMER *timer,
-    uint8_t prescalar,
+    uint16_t prescalar,
     uint8_t inverted,
     uint16_t counter_max
 )
 {
+    /* Clock source and prescalar [TCCRnB]
+
+       CSn2:0 is a 3 bit number, not one bit per prescalar:
+
+        prescalar | CSn2:0
+        ----------|-------
+        1         | 001
+        8         | 010
+        64        | 011
+        256       | 100
+        1024      | 101
+    */
+    switch(prescalar)
+    {
+        case 1:
+        pwm->cs_bits = 0x01;
+        break;
+
+        case 8:
+        pwm->cs_bits = 0x02;
+        break;
+
+        case 64:
+        pwm->cs_bits = 0x03;
+        break;
+
+        case 256:
+        pwm->cs_bits = 0x04;
+        break;
+
+        case 1024:
+        pwm->cs_bits = 0x05;
+        break;
+
+        default:
+        // error: unsupported prescalar
+        return -1;
+    }
+
+    /* pulse width = 2 * counts * prescalar / F_CPU */
+    pwm->counts_per_us_q8 =
+        (uint16_t)((F_CPU / 1000000UL * 256UL) / (2UL * prescalar));
+    if(counter_max == 0 || pwm->counts_per_us_q8 == 0)
+        return -1;
+
     /* copy in timer and register addresses */
     pwm->timer = timer;
+    pwm->prescalar = prescalar;
+    pwm->counter_max = counter_max;
     pwm->OCRnx[chn_A] = timer->OCRnA;
     pwm->OCRnx[chn_B] = timer->OCRnB;
     pwm->OCRnx[chn_C] = timer->OCRnC;
+
+    /* stop the clock while configuring */
+    *(pwm->timer->TCCRnB) &= ~CSn_MASK;
 
     /* Set to PWM mode [TCCRnA, TCCRnB] */
 
@@ -53,54 +105,13 @@ void PWM_TimerConfig(
 
     /* Inverted(11) vs. Uninverted(10) [TCCRnA] */
     set_1bit(*(pwm->timer->TCCRnA), COMnA1, 1);
-    set_1bit(*(pwm->timer->TCCRnA), COMnA0, -inverted);
+    set_1bit(*(pwm->timer->TCCRnA), COMnA0, inverted);
 
     set_1bit(*(pwm->timer->TCCRnA), COMnB1, 1);
-    set_1bit(*(pwm->timer->TCCRnA), COMnB0, -inverted);
+    set_1bit(*(pwm->timer->TCCRnA), COMnB0, inverted);
 
     set_1bit(*(pwm->timer->TCCRnA), COMnC1, 1);
-    set_1bit(*(pwm->timer->TCCRnA), COMnC0, -inverted);
-
-    /* Clock source and prescalar [TCCRnB] */
-    /*
-        prescalar     | CSn2:0       
-        --------------|--------------
-        1    = 0x0001 | 001  = 0x01  
-        8    = 0x0010 | 010  = 0x02  
-        64   = 0x0040 | 011  = 0x04  
-        256  = 0x0100 | 100  = 0x08  
-        1024 = 0x0400 | 101  = 0x10  
-    */
-    set_1bit_hex(*(pwm->timer->TCCRnB), CSn2, prescalar);
-    set_1bit_hex(*(pwm->timer->TCCRnB), CSn1, prescalar);
-    set_1bit_hex(*(pwm->timer->TCCRnB), CSn0, prescalar);
-    switch(prescalar)
-    {
-        case 1:
-        pwm->prescalar = 1;
-        break;
-
-        case 2:
-        pwm->prescalar = 8;
-        break;
-
-        case 4:
-        pwm->prescalar = 64;
-        break;
-
-        case 8:
-        pwm->prescalar = 256;
-        break;
-
-        case 16:
-        pwm->prescalar = 1024;
-        break;
-
-        default:
-        // error, unset
-        pwm->prescalar = 0;
-        break;
-    }
+    set_1bit(*(pwm->timer->TCCRnA), COMnC0, inverted);
 
     /* Turn on all 3 output pins [DDRB, DDRE, DDRH, DDRL]
        General Setup: DDRn |= ((1<< OCnA) | (1<< OCnB) | (1<< OCnC))
@@ -132,100 +143,71 @@ void PWM_TimerConfig(
         break;
     }
 
-    /* Set counter_max [20Hz for 16Mhz cpu clock] */
-    pwm->counter_max = counter_max;
-
     /* set TOP [ICRn] */
     *(pwm->timer->ICRn) = pwm->counter_max;
 
    /* start from zero */
     *(pwm->timer->TCNTn) = 0x0000;
-}
 
-/*# Set pwm configuration and initial state
-
-  Parameters
-  ----------
-  pwm_config[0]: max level
-  pwm_config[1]: min level
-  pwm_config[2]: idle level
-  pwm_config[3]: increments in compare value stored in register
-*/
-void PWM_PwmConfig(PWM *pwm, uint16_t pwm_config[4], PWM_Channel chn_x)
-{
-    pwm->pwm_level_max[chn_x]  = pwm_config[0];
-    pwm->pwm_level_min[chn_x]  = pwm_config[1];
-    pwm->pwm_level_idle[chn_x] = pwm_config[2];
-    pwm->pwm_step[chn_x]       = pwm_config[3];
-
-    pwm->pwm_level[chn_x] = pwm->pwm_level_idle[chn_x];
-    *(pwm->OCRnx[chn_x]) = pwm->pwm_level[chn_x] * pwm->pwm_step[chn_x];
-}
-
-/* # Increment duty cycle level */
-int PWM_Inc(PWM *pwm, PWM_Channel chn_x)
-{
-    if(pwm->pwm_level[chn_x] < pwm->pwm_level_max[chn_x])
-    {
-        *(pwm->OCRnx[chn_x]) += pwm->pwm_step[chn_x];
-        pwm->pwm_level[chn_x]++;
-    }
     return 0;
 }
 
-/* # Decrement duty cycle level */
-int PWM_Dec(PWM *pwm, PWM_Channel chn_x)
+/* # Start the timer clock */
+void PWM_Start(PWM *pwm)
 {
-    if(pwm->pwm_level[chn_x] > pwm->pwm_level_min[chn_x])
-    {
-        *(pwm->OCRnx[chn_x]) -= pwm->pwm_step[chn_x];
-        pwm->pwm_level[chn_x]--;
-    }
-    return 0;
+    *(pwm->timer->TCCRnB) = (*(pwm->timer->TCCRnB) & ~CSn_MASK) | pwm->cs_bits;
 }
 
-/* # Calculate and return duty cycle of given PWM */
+/* # Set compare value; clamped to TOP */
+void PWM_Write(PWM *pwm, PWM_Channel chn_x, uint16_t counts)
+{
+    if(counts > pwm->counter_max) counts = pwm->counter_max;
+    *(pwm->OCRnx[chn_x]) = counts;
+}
+
+/* # Get compare value; atomic, as the motion interrupt may be writing it */
+uint16_t PWM_Read(PWM *pwm, PWM_Channel chn_x)
+{
+    uint16_t counts;
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+    {
+        counts = *(pwm->OCRnx[chn_x]);
+    }
+    return counts;
+}
+
+/* # Pulse width in microseconds to timer counts (rounded) */
+uint16_t PWM_UsToCounts(const PWM *pwm, uint16_t us)
+{
+    return (uint16_t)(((uint32_t)us * pwm->counts_per_us_q8 + 128) >> 8);
+}
+
+/* # Timer counts to pulse width in microseconds (rounded) */
+uint16_t PWM_CountsToUs(const PWM *pwm, uint16_t counts)
+{
+    return (uint16_t)((((uint32_t)counts << 8) + pwm->counts_per_us_q8 / 2)
+                      / pwm->counts_per_us_q8);
+}
+
+/* # PWM frequency in hundredths of a Hz: F_CPU / (2 * N * TOP) */
+uint32_t PWM_FrequencyCentiHz(const PWM *pwm)
+{
+    uint32_t denom = 2UL * pwm->prescalar * pwm->counter_max;
+    return (F_CPU * 100UL + denom / 2) / denom;
+}
+
+/* # Write PWM frequency as a string */
 int PWM_FrequencyHz(PWM *pwm, char *str_out)
 {
-    uint8_t denom = 2 * pwm->counter_max * pwm->prescalar;
-    if(denom <= 0)
-        return -1;
-    else
-    {
-        uint8_t freq_hz = (F_CPU - (F_CPU % denom)) / denom;
-        return sprintf(str_out, "%d Hz", freq_hz);
-    }
+    uint32_t centi_hz = PWM_FrequencyCentiHz(pwm);
+    return sprintf(str_out, "%lu.%02lu Hz", centi_hz / 100, centi_hz % 100);
 }
 
-/* # Calculate and return duty cycle of given PWM */
+/* # Write duty cycle of given channel as a string: OCRnx / TOP */
 int PWM_DutyCycle(PWM *pwm, PWM_Channel chn_x, char *str_out)
 {
-    if(*(pwm->OCRnx[chn_x]) > pwm->counter_max)
-        return -1;
-    else
-    {
-        uint8_t mod = (100 * pwm->counter_max) % *(pwm->OCRnx[chn_x]);
-        uint8_t out = ((100 * pwm->counter_max) - mod) / *(pwm->OCRnx[chn_x]);
-        return sprintf(str_out, "%d %%", out);
-    }
+    uint32_t centi_pct =
+        ((uint32_t)PWM_Read(pwm, chn_x) * 10000UL + pwm->counter_max / 2)
+        / pwm->counter_max;
+    return sprintf(str_out, "%lu.%02lu %%", centi_pct / 100, centi_pct % 100);
 }
-
-/* # Set level back to idle
-*/
-int PWM_Idle(PWM * pwm, PWM_Channel chn_x)
-{
-    while(pwm->pwm_level[chn_x] < pwm->pwm_level_idle[chn_x])
-    {
-        _delay_ms(25);
-        *(pwm->OCRnx[chn_x]) += pwm->pwm_step[chn_x];
-        pwm->pwm_level[chn_x]++;
-    }
-    while(pwm->pwm_level[chn_x] > pwm->pwm_level_idle[chn_x])
-    {
-        _delay_ms(25);
-        *(pwm->OCRnx[chn_x]) -= pwm->pwm_step[chn_x];
-        pwm->pwm_level[chn_x]--;
-    }
-    return 0;
-}
-

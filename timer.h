@@ -51,10 +51,14 @@
 #define CSn2  2
 #define CSn1  1
 #define CSn0  0
+#define CSn_MASK ((1 << CSn2) | (1 << CSn1) | (1 << CSn0))
 
 #define FOCnA   7
 #define FOCnB   6
 #define FOCnC   5
+
+/* TIMSKn */
+#define TOIEn   0
 
 /* -------------- */
 /*  Timer Object  */
@@ -65,7 +69,7 @@ typedef struct TIMER
     /* General location of timer registers */
     volatile uint8_t * timer_reg_loc;
 
-    /* Timer registers; [OCRnx and TCNTn not used] */
+    /* Timer registers */
     volatile uint8_t * TCCRnA;
     volatile uint8_t * TCCRnB;
     volatile uint8_t * TCCRnC;
@@ -77,6 +81,9 @@ typedef struct TIMER
     volatile uint16_t * OCRnB;
     volatile uint16_t * OCRnC;
 
+    /* Interrupt mask; not at a fixed offset from the other registers */
+    volatile uint8_t * TIMSKn;
+
     /* # 16-bit timer number, n = 1,3,4,5 */
     uint8_t timer_n;
 
@@ -84,5 +91,9 @@ typedef struct TIMER
 
 /* Constructor */
 extern int TIMER_Init(TIMER *timer, uint8_t n);
+
+/* Call `callback` from the timer overflow interrupt (TOVn); NULL disables it.
+   The callback runs in interrupt context, so keep it short. */
+extern void TIMER_SetOverflowCallback(TIMER *timer, void (*callback)(void));
 
 #endif

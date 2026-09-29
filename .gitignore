@@ -1,0 +1,5 @@
+*.o
+*.d
+*.elf
+*.hex
+sim/test_ctrl_servo
